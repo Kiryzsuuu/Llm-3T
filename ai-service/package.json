@@ -1,0 +1,12 @@
+{
+  "name": "belajar-3t-ai-service",
+  "version": "1.0.0",
+  "description": "Layanan AI (RAG + Ollama) untuk platform belajar-3t",
+  "main": "rag.js",
+  "type": "commonjs",
+  "dependencies": {
+    "mammoth": "^1.12.0",
+    "ollama": "^0.5.9",
+    "pdf-parse": "^2.4.5"
+  }
+}
