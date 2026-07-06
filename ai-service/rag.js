@@ -29,7 +29,10 @@ const SMALL_TALK = [
     jawaban: 'Aku bisa menjelaskan materi pelajaran sesuai kurikulum yang diunggah gurumu, membuatkan soal latihan, dan menjawab pertanyaan seputar pelajaran. Coba tanyakan topik dari materi yang sedang kamu pelajari!',
   },
   {
-    pola: /^((kamu )?bisa (tolong )?bantu (aku|saya)( g?a?k| tidak|kah| dong| ya)?)[\s!.,?]*$/i,
+    // Cocok untuk pertanyaan kemampuan umum seperti "apakah kamu bisa bantu aku belajar",
+    // "kamu bisa bantu aku gak", "bisa bantu aku belajar ya" — tapi TIDAK untuk pertanyaan
+    // konten spesifik seperti "bisa bantu aku paham hukum newton" (dilempar ke RAG seperti biasa).
+    pola: /^(apa(kah)?\s+)?(kamu\s+bisa(kah)?|bisa(kah)?\s+kamu|bisa(kah)?)\s+(tolong\s+)?(bantu|membantu)\s+(aku|saya)(\s+(belajar|dong|ya|g?a?k|tidak|enggak|nggak))*[\s!.,?]*$/i,
     jawaban: 'Tentu bisa! Ceritakan materi atau soal apa yang sedang kamu pelajari, nanti aku bantu jelaskan.',
   },
   {
