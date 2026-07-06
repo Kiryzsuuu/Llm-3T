@@ -11,6 +11,7 @@ const MENU_BY_ROLE = {
     { to: '/guru/dashboard', label: 'Dashboard' },
     { to: '/guru/murid', label: 'Murid' },
     { to: '/guru/materi', label: 'Materi' },
+    { to: '/guru/bank-materi', label: 'Bank Materi' },
     { to: '/guru/soal', label: 'Soal' },
   ],
   admin: [

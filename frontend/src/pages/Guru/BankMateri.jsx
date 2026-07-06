@@ -1,28 +1,26 @@
 import { useEffect, useState } from 'react';
 import api from '../../utils/api';
 
-const FORM_KOSONG = { judul: '', mapel: '', jenjang: 'SD', kelas: '', bab: '', konten: '' };
+const FORM_KOSONG = { judul: '', mapel: '', jenjang: 'SD', bab: '', konten: '' };
 
-export default function GuruMateri() {
-  const [materi, setMateri] = useState([]);
+export default function BankMateri() {
+  const [bankMateri, setBankMateri] = useState([]);
   const [mapelList, setMapelList] = useState([]);
-  const [bankMateriList, setBankMateriList] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [cari, setCari] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState(null);
   const [form, setForm] = useState(FORM_KOSONG);
+  const [file, setFile] = useState(null);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const [hapusTarget, setHapusTarget] = useState(null);
-  const [file, setFile] = useState(null);
-  const [sumberMateri, setSumberMateri] = useState('baru'); // 'baru' | 'bank'
-  const [bankIdDipilih, setBankIdDipilih] = useState('');
 
   async function load() {
     setLoading(true);
     try {
-      const { data } = await api.get('/materi');
-      setMateri(data);
+      const { data } = await api.get('/bank-materi');
+      setBankMateri(data);
     } finally {
       setLoading(false);
     }
@@ -31,39 +29,26 @@ export default function GuruMateri() {
   useEffect(() => {
     load();
     api.get('/mapel').then(({ data }) => setMapelList(data));
-    api.get('/bank-materi').then(({ data }) => setBankMateriList(data));
   }, []);
 
   function handleTambahBaru() {
     setForm({ ...FORM_KOSONG, mapel: mapelList[0]?.nama || '' });
     setFile(null);
     setEditId(null);
-    setSumberMateri('baru');
-    setBankIdDipilih('');
     setShowForm(true);
     setError('');
   }
 
-  function handlePilihDariBank(id) {
-    setBankIdDipilih(id);
-    const item = bankMateriList.find((b) => b._id === id);
-    if (!item) return;
-    setForm((f) => ({ ...f, judul: item.judul, mapel: item.mapel, jenjang: item.jenjang, bab: item.bab || '', konten: item.konten }));
+  function handleEdit(item) {
+    setForm({ judul: item.judul, mapel: item.mapel, jenjang: item.jenjang, bab: item.bab || '', konten: item.konten });
     setFile(null);
-  }
-
-  function handleEdit(m) {
-    setForm({ judul: m.judul, mapel: m.mapel, jenjang: m.jenjang, kelas: m.kelas, bab: m.bab || '', konten: m.konten });
-    setFile(null);
-    setEditId(m._id);
-    setSumberMateri('baru');
-    setBankIdDipilih('');
+    setEditId(item._id);
     setShowForm(true);
     setError('');
   }
 
   async function handleHapus() {
-    await api.delete(`/materi/${hapusTarget._id}`);
+    await api.delete(`/bank-materi/${hapusTarget._id}`);
     setHapusTarget(null);
     load();
   }
@@ -73,7 +58,7 @@ export default function GuruMateri() {
     setError('');
 
     if (!file && !form.konten.trim()) {
-      setError('Isi konten materi secara manual, atau upload file PDF/TXT/DOCX.');
+      setError('Isi konten secara manual, atau upload file PDF/TXT/DOCX.');
       return;
     }
 
@@ -87,71 +72,35 @@ export default function GuruMateri() {
       }
 
       if (editId) {
-        await api.put(`/materi/${editId}`, payload);
+        await api.put(`/bank-materi/${editId}`, payload);
       } else {
-        await api.post('/materi', payload);
+        await api.post('/bank-materi', payload);
       }
       setShowForm(false);
       load();
     } catch (err) {
-      setError(err.response?.data?.message || 'Gagal menyimpan materi');
+      setError(err.response?.data?.message || 'Gagal menyimpan bank materi');
     } finally {
       setSaving(false);
     }
   }
+
+  const itemTampil = bankMateri.filter(
+    (item) => !cari || item.judul.toLowerCase().includes(cari.toLowerCase())
+  );
 
   if (showForm) {
     return (
       <div className="container" style={{ maxWidth: 640 }}>
         <div className="breadcrumb">
           <a onClick={() => setShowForm(false)} style={{ cursor: 'pointer' }}>
-            Kelola materi
+            Bank Materi
           </a>{' '}
-          · {editId ? 'Edit materi' : 'Tambah materi'}
+          · {editId ? 'Edit item' : 'Tambah item'}
         </div>
         <div className="mb-4" style={{ fontSize: 18, fontWeight: 500 }}>
-          {editId ? 'Edit materi' : 'Tambah materi baru'}
+          {editId ? 'Edit item bank materi' : 'Tambah item bank materi'}
         </div>
-
-        {!editId && (
-          <div className="field">
-            <label>Sumber materi</label>
-            <div className="chips" style={{ marginBottom: 8 }}>
-              <div
-                className={`chip ${sumberMateri === 'baru' ? 'active' : ''}`}
-                onClick={() => {
-                  setSumberMateri('baru');
-                  setBankIdDipilih('');
-                }}
-              >
-                <i className="ti ti-file-plus" /> Buat baru
-              </div>
-              <div className={`chip ${sumberMateri === 'bank' ? 'active' : ''}`} onClick={() => setSumberMateri('bank')}>
-                <i className="ti ti-database" /> Pilih dari Bank Materi
-              </div>
-            </div>
-
-            {sumberMateri === 'bank' && (
-              <>
-                <select value={bankIdDipilih} onChange={(e) => handlePilihDariBank(e.target.value)}>
-                  <option value="" disabled>
-                    {bankMateriList.length === 0 ? 'Bank materi masih kosong' : 'Pilih item dari bank...'}
-                  </option>
-                  {bankMateriList.map((item) => (
-                    <option key={item._id} value={item._id}>
-                      {item.judul} — {item.mapel} ({item.jenjang})
-                    </option>
-                  ))}
-                </select>
-                {bankIdDipilih && (
-                  <div className="text-muted mt-2" style={{ fontSize: 12 }}>
-                    <i className="ti ti-info-circle" /> Konten disalin dari bank, silakan sesuaikan kelas dan edit isinya jika perlu.
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-        )}
 
         <form onSubmit={handleSubmit}>
           <div className="field">
@@ -165,7 +114,7 @@ export default function GuruMateri() {
             />
           </div>
 
-          <div className="grid-2" style={{ gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
+          <div className="grid-2" style={{ gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div className="field">
               <label>Mata pelajaran</label>
               <select value={form.mapel} onChange={(e) => setForm({ ...form, mapel: e.target.value })} required>
@@ -187,16 +136,6 @@ export default function GuruMateri() {
                 <option value="SMA">SMA</option>
               </select>
             </div>
-            <div className="field">
-              <label>Kelas</label>
-              <input
-                type="text"
-                placeholder="mis. 8"
-                value={form.kelas}
-                onChange={(e) => setForm({ ...form, kelas: e.target.value })}
-                required
-              />
-            </div>
           </div>
 
           <div className="field">
@@ -205,12 +144,8 @@ export default function GuruMateri() {
           </div>
 
           <div className="field">
-            <label>Upload file materi (PDF, TXT, atau DOCX)</label>
-            <input
-              type="file"
-              accept=".pdf,.txt,.docx"
-              onChange={(e) => setFile(e.target.files?.[0] || null)}
-            />
+            <label>Upload file (PDF, TXT, atau DOCX)</label>
+            <input type="file" accept=".pdf,.txt,.docx" onChange={(e) => setFile(e.target.files?.[0] || null)} />
             {file && (
               <div className="text-muted mt-2" style={{ fontSize: 12 }}>
                 <i className="ti ti-file-check" /> {file.name} — konten akan diambil otomatis dari file ini.
@@ -219,7 +154,7 @@ export default function GuruMateri() {
           </div>
 
           <div className="field">
-            <label>{file ? 'Konten materi (opsional, akan ditimpa isi file jika dikosongkan)' : 'Konten materi'}</label>
+            <label>{file ? 'Konten (opsional, akan ditimpa isi file jika dikosongkan)' : 'Konten'}</label>
             <textarea
               rows={8}
               placeholder={
@@ -244,7 +179,7 @@ export default function GuruMateri() {
               Batal
             </button>
             <button type="submit" className="btn" style={{ flex: 2 }} disabled={saving}>
-              {saving ? 'Menyimpan...' : 'Simpan materi'}
+              {saving ? 'Menyimpan...' : 'Simpan ke Bank Materi'}
             </button>
           </div>
         </form>
@@ -256,21 +191,31 @@ export default function GuruMateri() {
     <div className="container">
       <div className="sec-head mb-4">
         <div className="sec-title" style={{ fontSize: 17 }}>
-          Kelola materi
+          Bank Materi
         </div>
         <button className="btn" onClick={handleTambahBaru}>
-          <i className="ti ti-plus" /> Tambah materi
+          <i className="ti ti-plus" /> Tambah ke Bank
         </button>
+      </div>
+      <p className="text-muted mb-4" style={{ fontSize: 13 }}>
+        Perpustakaan materi yang bisa disalin ke Kelola Materi saat membuat materi baru untuk kelas tertentu.
+      </p>
+
+      <div className="toolbar">
+        <div className="search">
+          <i className="ti ti-search" />
+          <input type="text" placeholder="Cari judul materi..." value={cari} onChange={(e) => setCari(e.target.value)} />
+        </div>
       </div>
 
       <div className="panel tbl-wrap" style={{ padding: '6px 16px' }}>
         {loading ? (
           <p className="text-muted" style={{ padding: '10px 0' }}>
-            Memuat materi...
+            Memuat bank materi...
           </p>
-        ) : materi.length === 0 ? (
+        ) : itemTampil.length === 0 ? (
           <p className="text-muted" style={{ padding: '10px 0' }}>
-            Belum ada materi. Tambahkan materi baru.
+            Bank materi masih kosong. Tambahkan item pertama.
           </p>
         ) : (
           <table className="tbl">
@@ -278,24 +223,24 @@ export default function GuruMateri() {
               <tr>
                 <th>Judul</th>
                 <th>Mapel</th>
-                <th>Kelas</th>
+                <th>Jenjang</th>
                 <th></th>
               </tr>
             </thead>
             <tbody>
-              {materi.map((m) => (
-                <tr key={m._id}>
-                  <td className="row-name">{m.judul}</td>
-                  <td>{m.mapel}</td>
-                  <td>{m.kelas}</td>
+              {itemTampil.map((item) => (
+                <tr key={item._id}>
+                  <td className="row-name">{item.judul}</td>
+                  <td>{item.mapel}</td>
+                  <td>{item.jenjang}</td>
                   <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
-                    <button className="btn ghost" style={{ padding: '5px 9px' }} onClick={() => handleEdit(m)}>
+                    <button className="btn ghost" style={{ padding: '5px 9px' }} onClick={() => handleEdit(item)}>
                       <i className="ti ti-edit" />
                     </button>
                     <button
                       className="btn danger"
                       style={{ padding: '5px 9px', marginLeft: 6 }}
-                      onClick={() => setHapusTarget(m)}
+                      onClick={() => setHapusTarget(item)}
                     >
                       <i className="ti ti-trash" />
                     </button>
@@ -310,8 +255,10 @@ export default function GuruMateri() {
       {hapusTarget && (
         <div className="modal-overlay">
           <div className="modal-card">
-            <div className="modal-title">Hapus materi?</div>
-            <div className="modal-text">"{hapusTarget.judul}" akan dihapus permanen dan tidak bisa dikembalikan.</div>
+            <div className="modal-title">Hapus dari Bank Materi?</div>
+            <div className="modal-text">
+              "{hapusTarget.judul}" akan dihapus dari bank. Materi yang sudah disalin ke kelas tertentu tidak ikut terhapus.
+            </div>
             <div className="flex gap-3">
               <button className="btn ghost" style={{ flex: 1 }} onClick={() => setHapusTarget(null)}>
                 Batal

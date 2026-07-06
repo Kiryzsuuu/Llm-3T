@@ -16,6 +16,7 @@ if (process.env.DNS_OVERRIDE !== 'false') {
 const authRoutes = require('./routes/auth');
 const usersRoutes = require('./routes/users');
 const mapelRoutes = require('./routes/mapel');
+const bankMateriRoutes = require('./routes/bank-materi');
 const materiRoutes = require('./routes/materi');
 const soalRoutes = require('./routes/soal');
 const progressRoutes = require('./routes/progress');
@@ -32,6 +33,7 @@ app.get('/api/health', (req, res) => res.json({ success: true, data: { status: '
 app.use('/api/auth', authRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/mapel', mapelRoutes);
+app.use('/api/bank-materi', bankMateriRoutes);
 app.use('/api/materi', materiRoutes);
 app.use('/api/soal', soalRoutes);
 app.use('/api/progress', progressRoutes);

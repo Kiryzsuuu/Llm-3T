@@ -13,6 +13,7 @@ import GuruDashboard from './pages/Guru/Dashboard';
 import GuruMurid from './pages/Guru/Murid';
 import GuruMateri from './pages/Guru/Materi';
 import GuruSoal from './pages/Guru/Soal';
+import BankMateri from './pages/Guru/BankMateri';
 
 import AdminDashboard from './pages/Admin/Dashboard';
 import AdminEduNusa from './pages/Admin/EduNusa';
@@ -98,6 +99,14 @@ export default function App() {
           element={
             <ProtectedRoute allowedRoles={['guru', 'admin']}>
               <GuruSoal />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/guru/bank-materi"
+          element={
+            <ProtectedRoute allowedRoles={['guru', 'admin']}>
+              <BankMateri />
             </ProtectedRoute>
           }
         />

@@ -85,6 +85,7 @@ export default function AdminDashboard() {
       <div className="menu-grid">
         <MenuCard to="/admin/users" icon="ti-users-group" warna="teal" title="Kelola pengguna" desc="Murid, guru, admin" />
         <MenuCard to="/guru/materi" icon="ti-books" warna="amber" title="Kelola materi" desc="Konten kurikulum" />
+        <MenuCard to="/guru/bank-materi" icon="ti-database" warna="teal" title="Bank Materi" desc="Perpustakaan materi siap pakai" />
         <MenuCard to="/guru/soal" icon="ti-list-check" warna="blue" title="Kelola soal" desc="Bank soal latihan" />
         <MenuCard to="/admin/mapel" icon="ti-category" warna="purple" title="Mata pelajaran" desc="Kategori & jenjang" />
         <MenuCard to="/guru/murid" icon="ti-chart-bar" warna="teal" title="Progress murid" desc="Pantau semua sekolah" />
