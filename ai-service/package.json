@@ -1,7 +1,7 @@
 {
-  "name": "belajar-3t-ai-service",
+  "name": "edunusa-ai-service",
   "version": "1.0.0",
-  "description": "Layanan AI (RAG + Ollama) untuk platform belajar-3t",
+  "description": "Layanan AI (RAG + Ollama) untuk platform EduNusa",
   "main": "rag.js",
   "type": "commonjs",
   "dependencies": {

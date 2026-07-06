@@ -1,7 +1,7 @@
 {
-  "name": "Belajar 3T",
-  "short_name": "Belajar3T",
-  "description": "Platform belajar untuk siswa daerah Terdepan, Terluar, Tertinggal",
+  "name": "EduNusa",
+  "short_name": "EduNusa",
+  "description": "Platform belajar dengan asisten AI EduNusa untuk siswa daerah Terdepan, Terluar, Tertinggal",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",

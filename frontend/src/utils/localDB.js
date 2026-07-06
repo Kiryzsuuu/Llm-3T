@@ -1,6 +1,6 @@
 import { openDB } from 'idb';
 
-const DB_NAME = 'belajar-3t-db';
+const DB_NAME = 'edunusa-db';
 const DB_VERSION = 2;
 
 export async function getDB() {

@@ -1,7 +1,7 @@
 {
-  "name": "belajar-3t-frontend",
+  "name": "edunusa-frontend",
   "version": "1.0.0",
-  "description": "Frontend PWA untuk platform belajar-3t",
+  "description": "Frontend PWA untuk platform EduNusa",
   "type": "module",
   "scripts": {
     "dev": "vite",

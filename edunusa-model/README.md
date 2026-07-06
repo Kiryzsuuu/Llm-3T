@@ -1,6 +1,6 @@
 # EduNusa
 
-EduNusa adalah model AI Tutor resmi platform **Belajar 3T** — sebuah kustomisasi dari model bahasa lokal (saat ini
+EduNusa adalah model AI Tutor resmi platform **EduNusa** — sebuah kustomisasi dari model bahasa lokal (saat ini
 `gemma2:2b` via Ollama) yang diberi identitas, batasan cakupan materi, dan gaya bahasa khusus agar cocok dipakai
 sebagai asisten belajar untuk siswa SD/SMP/SMA di daerah 3T (Terdepan, Terluar, Tertinggal).
 
@@ -8,7 +8,7 @@ EduNusa dirancang untuk:
 - Hanya menjawab pertanyaan seputar kurikulum Kemendikbud (SD, SMP, SMA).
 - Menjawab dalam Bahasa Indonesia yang mudah dipahami, disesuaikan dengan jenjang murid.
 - Menolak dengan sopan ("Maaf, materi ini belum tersedia di EduNusa.") jika pertanyaan di luar kurikulum.
-- Memperkenalkan diri sebagai EduNusa buatan tim Belajar 3T, bukan sebagai model dasar aslinya.
+- Memperkenalkan diri sebagai EduNusa buatan tim EduNusa, bukan sebagai model dasar aslinya.
 
 Model ini dipakai oleh `ai-service/` (lihat `ollama.js` dan `rag.js`) sebagai model chat untuk fitur AI Tutor dan
 generate soal otomatis.

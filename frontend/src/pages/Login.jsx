@@ -41,7 +41,7 @@ export default function Login() {
       <div className="login-brand">
         <div className="flex items-center gap-3 mb-4">
           <i className="ti ti-book" style={{ fontSize: 30, color: '#1D9E75' }} />
-          <span style={{ fontSize: 22, fontWeight: 500, color: '#E1F5EE' }}>Belajar 3T</span>
+          <span style={{ fontSize: 22, fontWeight: 500, color: '#E1F5EE' }}>EduNusa</span>
         </div>
         <div style={{ fontSize: 26, fontWeight: 500, color: '#E1F5EE', lineHeight: 1.35, maxWidth: 340 }}>
           Belajar tanpa batas, di mana saja.

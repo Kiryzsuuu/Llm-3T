@@ -1,7 +1,7 @@
 {
-  "name": "belajar-3t",
+  "name": "edunusa",
   "version": "1.0.0",
-  "description": "Platform belajar-3t — root workspace (backend, frontend, ai-service)",
+  "description": "Platform EduNusa — root workspace (backend, frontend, ai-service)",
   "private": true,
   "workspaces": [
     "backend",

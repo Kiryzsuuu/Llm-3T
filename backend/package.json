@@ -1,7 +1,7 @@
 {
-  "name": "belajar-3t-backend",
+  "name": "edunusa-backend",
   "version": "1.0.0",
-  "description": "Backend API untuk platform belajar-3t",
+  "description": "Backend API untuk platform EduNusa",
   "main": "server.js",
   "type": "commonjs",
   "scripts": {

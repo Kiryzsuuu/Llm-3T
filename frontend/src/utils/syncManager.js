@@ -13,7 +13,7 @@ function beriNotifikasi(pesan, jenis = 'success') {
   listenerNotifikasi.forEach((fn) => fn({ pesan, jenis }));
 
   if ('Notification' in window && Notification.permission === 'granted') {
-    new Notification('Belajar 3T', { body: pesan });
+    new Notification('EduNusa', { body: pesan });
   }
 }
 

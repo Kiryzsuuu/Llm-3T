@@ -1,4 +1,4 @@
-# Belajar 3T
+# EduNusa
 
 Platform belajar fullstack (offline-first PWA) untuk siswa di daerah Terdepan, Terluar, Tertinggal (3T), dengan asisten AI **EduNusa** berbasis RAG + Ollama. Dijalankan sepenuhnya tanpa Docker.
 
@@ -162,7 +162,7 @@ Ganti `GANTI_PASSWORD_INI`, `admin@contoh.com`, dan `Nama Admin` sesuai kebutuha
    - **Kelola Soal** (`/guru/soal`) — CRUD soal pilihan ganda per materi.
    - **Progress Murid** (`/guru/murid`) — pantau progres belajar murid per sekolah.
    - **Statistik EduNusa** (`/admin/edunusa`) — jumlah pertanyaan hari ini/minggu ini, rata-rata response time, daftar pertanyaan yang belum terjawab (insight konten yang perlu ditambahkan), dan tombol export log ke CSV.
-3. Untuk mengganti password sendiri, klik **Ubah Password** di navbar.
+3. Untuk mengedit profil (nama, email, sekolah) atau mengganti password sendiri, klik **avatar** di pojok kanan navbar untuk membuka halaman Profil Saya.
 
 ### Alur untuk Guru
 

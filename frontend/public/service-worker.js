@@ -1,4 +1,4 @@
-const CACHE_NAME = 'belajar-3t-cache-v3';
+const CACHE_NAME = 'edunusa-cache-v1';
 const APP_SHELL = [
   '/',
   '/index.html',
@@ -54,7 +54,7 @@ async function networkOnly(request) {
       JSON.stringify({
         success: false,
         data: null,
-        message: 'Tidak ada koneksi internet. AI Tutor membutuhkan koneksi ke server.',
+        message: 'Tidak ada koneksi internet. EduNusa membutuhkan koneksi ke server.',
       }),
       { status: 503, headers: { 'Content-Type': 'application/json' } }
     );

@@ -61,7 +61,7 @@ export default function Navbar() {
         <div className="nav-in">
           <Link to="/login" className="nav-logo">
             <i className="ti ti-book" />
-            Belajar 3T
+            EduNusa
           </Link>
         </div>
       </nav>
@@ -73,7 +73,7 @@ export default function Navbar() {
       <div className="nav-in">
         <Link to={homeLink} className="nav-logo">
           <i className="ti ti-book" />
-          Belajar 3T
+          EduNusa
         </Link>
 
         <div className="nav-menu">

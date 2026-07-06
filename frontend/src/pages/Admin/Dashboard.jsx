@@ -43,7 +43,7 @@ export default function AdminDashboard() {
           <div className="hero-avatar">{(user?.nama || 'AD').slice(0, 2).toUpperCase()}</div>
           <div>
             <div className="hero-hi">Pusat kendali</div>
-            <div className="hero-name">{user?.nama || 'Admin'} · Tim Pusat Belajar 3T</div>
+            <div className="hero-name">{user?.nama || 'Admin'} · Tim Pusat EduNusa</div>
           </div>
         </div>
       </div>
