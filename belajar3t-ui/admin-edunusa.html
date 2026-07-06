@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Statistik EduNusa — Belajar 3T</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.0.0/dist/tabler-icons.min.css">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<nav class="nav"><div class="nav-in">
+  <a class="nav-logo" href="admin.html"><i class="ti ti-book"></i>Belajar 3T</a>
+  <div class="nav-menu">
+    <a href="admin.html">Admin</a>
+    <a href="admin-users.html">Pengguna</a>
+    <a href="admin-edunusa.html" class="active">EduNusa</a>
+  </div>
+  <div class="nav-right">
+    <span class="conn"><span class="dot"></span>Terhubung</span>
+    <div class="avatar" style="background:var(--purple-bg);color:var(--purple)">AD</div>
+  </div>
+</div></nav>
+
+<div class="container">
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
+    <div class="edu-logo" style="width:38px;height:38px"><i class="ti ti-sparkles" style="font-size:18px"></i></div>
+    <div>
+      <div style="font-size:17px;font-weight:500">Statistik EduNusa</div>
+      <div style="font-size:12px;color:var(--muted)">Model: edunusa · v1.0 · <span style="color:var(--teal)">aktif di 12 sekolah</span></div>
+    </div>
+    <button class="btn ghost" style="margin-left:auto"><i class="ti ti-download"></i> Export CSV</button>
+  </div>
+
+  <div class="stats">
+    <div class="stat">
+      <div class="stat-ico" style="background:var(--teal-bg)"><i class="ti ti-message-circle" style="color:var(--teal)"></i></div>
+      <div class="stat-v">1.284</div><div class="stat-l">Pertanyaan hari ini</div>
+    </div>
+    <div class="stat">
+      <div class="stat-ico" style="background:var(--blue-bg)"><i class="ti ti-calendar-week" style="color:var(--blue)"></i></div>
+      <div class="stat-v">8.147</div><div class="stat-l">Pertanyaan minggu ini</div>
+    </div>
+    <div class="stat">
+      <div class="stat-ico" style="background:var(--amber-bg)"><i class="ti ti-clock" style="color:var(--amber)"></i></div>
+      <div class="stat-v">1,8s</div><div class="stat-l">Rata-rata respons</div>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="panel">
+      <div class="p-title">Pertanyaan 7 hari terakhir</div>
+      <div class="chart">
+        <div class="col"><div class="colbar" style="height:55%"></div><div class="collbl">Sen</div></div>
+        <div class="col"><div class="colbar" style="height:70%"></div><div class="collbl">Sel</div></div>
+        <div class="col"><div class="colbar" style="height:60%"></div><div class="collbl">Rab</div></div>
+        <div class="col"><div class="colbar" style="height:85%"></div><div class="collbl">Kam</div></div>
+        <div class="col"><div class="colbar" style="height:95%"></div><div class="collbl">Jum</div></div>
+        <div class="col"><div class="colbar" style="height:40%"></div><div class="collbl">Sab</div></div>
+        <div class="col"><div class="colbar" style="height:30%"></div><div class="collbl">Min</div></div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="p-title">Belum terjawab</div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:10px">Insight: materi yang perlu ditambahkan</div>
+      <div class="alert amber" style="flex-direction:column;gap:2px"><div style="font-weight:500">"Cara menghitung mol kimia"</div><div>ditanya 34 kali · belum ada materi</div></div>
+      <div class="alert amber" style="flex-direction:column;gap:2px"><div style="font-weight:500">"Sejarah kemerdekaan lengkap"</div><div>ditanya 21 kali · materi terbatas</div></div>
+      <div class="alert amber" style="flex-direction:column;gap:2px"><div style="font-weight:500">"Rumus luas bangun ruang"</div><div>ditanya 18 kali · belum ada materi</div></div>
+    </div>
+  </div>
+
+  <div class="panel" style="margin-top:14px">
+    <div class="p-title">Pertanyaan terbaru</div>
+    <table class="tbl">
+      <thead><tr><th>Pertanyaan</th><th>Mapel</th><th>Sekolah</th><th>Respons</th><th>Status</th></tr></thead>
+      <tbody>
+        <tr><td>Apa fungsi alveolus?</td><td>IPA</td><td>SDN 03 Selayar</td><td>1,6s</td><td><span class="badge teal">Terjawab</span></td></tr>
+        <tr><td>Cara menghitung mol kimia</td><td>IPA</td><td>SDN 07 Alor</td><td>2,1s</td><td><span class="badge amber">Belum ada</span></td></tr>
+        <tr><td>Jelaskan hukum Newton II</td><td>IPA</td><td>SDN 03 Selayar</td><td>1,9s</td><td><span class="badge teal">Terjawab</span></td></tr>
+        <tr><td>Apa itu teks eksplanasi?</td><td>B. Indonesia</td><td>SDN 12 Sumba</td><td>1,4s</td><td><span class="badge teal">Terjawab</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+</body>
+</html>

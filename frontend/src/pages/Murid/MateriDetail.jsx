@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import api from '../../utils/api';
 import { getItem } from '../../utils/localDB';
 import { downloadMateri, isMateriOffline, hapusMateriOffline } from '../../utils/offlineCache';
@@ -47,48 +47,51 @@ export default function MateriDetail() {
     }
   }
 
-  if (loading) return <p className="p-4 text-sm text-gray-500">Memuat materi...</p>;
-  if (!materi) return <p className="p-4 text-sm text-gray-500">Materi tidak ditemukan.</p>;
+  if (loading) return <p className="container text-muted">Memuat materi...</p>;
+  if (!materi) return <p className="container text-muted">Materi tidak ditemukan.</p>;
 
   return (
-    <div className="mx-auto max-w-3xl space-y-4 p-4">
-      <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-        <p className="text-xs font-medium uppercase tracking-wide text-brand-600">
-          {materi.mapel} · {materi.jenjang} · Kelas {materi.kelas}
-        </p>
-        <h1 className="mb-3 text-xl font-bold text-gray-900">{materi.judul}</h1>
-
-        <div className="prose prose-sm max-w-none whitespace-pre-wrap text-gray-700">{materi.konten}</div>
-
-        {materi.file_url && (
-          <a
-            href={materi.file_url}
-            target="_blank"
-            rel="noreferrer"
-            className="mt-3 inline-block text-sm font-medium text-brand-600 underline"
-          >
-            Lihat file lampiran
-          </a>
-        )}
-
-        <div className="mt-4 flex flex-wrap gap-2">
-          <button
-            onClick={handleToggleOffline}
-            disabled={mengunduh}
-            className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-          >
-            {mengunduh ? 'Menyimpan...' : disimpanOffline ? '✓ Tersimpan offline (hapus)' : '⬇ Simpan offline'}
-          </button>
-          <button
-            onClick={() => navigate(`/murid/latihan/${materi._id}`)}
-            className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700"
-          >
-            Mulai Latihan
-          </button>
-        </div>
+    <div className="container" style={{ maxWidth: 760 }}>
+      <div className="breadcrumb">
+        <Link to="/murid/materi">Materi</Link> · {materi.mapel} · Kelas {materi.kelas}
       </div>
 
-      <AITutor materiId={materi._id} jenjang={materi.jenjang} />
+      <div className="flex items-start justify-between gap-3 mb-4" style={{ flexWrap: 'wrap' }}>
+        <div>
+          <div style={{ fontSize: 20, fontWeight: 500 }}>{materi.judul}</div>
+          <div className="flex gap-2 mt-2">
+            <span className="badge teal">{materi.mapel}</span>
+            <span className="badge blue">Kelas {materi.kelas}</span>
+            {materi.bab && <span className="badge amber">{materi.bab}</span>}
+          </div>
+        </div>
+        <button className={`btn ${disimpanOffline ? '' : 'ghost'}`} onClick={handleToggleOffline} disabled={mengunduh}>
+          <i className={`ti ${disimpanOffline ? 'ti-circle-check' : 'ti-download'}`} />
+          {mengunduh ? 'Menyimpan...' : disimpanOffline ? 'Tersimpan offline' : 'Simpan offline'}
+        </button>
+      </div>
+
+      <div className="prose">
+        {materi.konten}
+        {materi.file_url && (
+          <p className="mt-3">
+            <a href={materi.file_url} target="_blank" rel="noreferrer" style={{ color: 'var(--teal-acc)' }}>
+              <i className="ti ti-paperclip" /> Lihat file lampiran
+            </a>
+          </p>
+        )}
+      </div>
+
+      <button className="btn big" style={{ margin: '24px 0' }} onClick={() => navigate(`/murid/latihan/${materi._id}`)}>
+        <i className="ti ti-pencil" /> Mulai latihan soal
+      </button>
+
+      <AITutor
+        materiId={materi._id}
+        jenjang={materi.jenjang}
+        tagPembuka={`Bertanya seputar: ${materi.judul}`}
+        saran={[`Apa fungsi utama dari ${materi.judul}?`, 'Jelaskan lebih sederhana']}
+      />
     </div>
   );
 }

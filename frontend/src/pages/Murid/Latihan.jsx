@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../../utils/api';
 import { cacheSoal } from '../../utils/offlineCache';
@@ -6,17 +6,20 @@ import { getAllItems, simpanProgress, simpanJawaban } from '../../utils/localDB'
 import { syncProgressKeServer } from '../../utils/syncManager';
 import { getUser } from '../../utils/auth';
 
+const HURUF = ['A', 'B', 'C', 'D'];
+const WARNA_LEVEL = { mudah: 'teal', sedang: 'amber', sulit: 'red' };
+
 export default function Latihan() {
   const { materi_id } = useParams();
   const navigate = useNavigate();
+  const user = getUser();
 
   const [soalList, setSoalList] = useState([]);
   const [index, setIndex] = useState(0);
-  const [dipilih, setDipilih] = useState(null);
-  const [sudahJawab, setSudahJawab] = useState(false);
-  const [skor, setSkor] = useState(0);
+  const [jawaban, setJawaban] = useState({}); // { [index]: pilihanIndex }
   const [loading, setLoading] = useState(true);
   const [selesai, setSelesai] = useState(false);
+  const [menyimpan, setMenyimpan] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -35,55 +38,59 @@ export default function Latihan() {
   }, [materi_id]);
 
   const soal = soalList[index];
-  const user = getUser();
+  const sudahJawab = jawaban[index] !== undefined;
+  const skor = useMemo(
+    () => Object.entries(jawaban).filter(([i, v]) => soalList[i]?.jawaban_benar === v).length,
+    [jawaban, soalList]
+  );
 
   async function handlePilih(idx) {
     if (sudahJawab) return;
-    setDipilih(idx);
-    setSudahJawab(true);
-    const benar = idx === soal.jawaban_benar;
-    if (benar) {
-      setSkor((s) => s + 1);
-    }
+    setJawaban((prev) => ({ ...prev, [index]: idx }));
 
-    // Simpan jawaban ke IndexedDB agar tetap tercatat walau koneksi terputus di tengah latihan.
     await simpanJawaban({
       murid_id: user?.id,
       materi_id,
       soal_id: soal._id,
       jawaban: idx,
-      benar,
+      benar: idx === soal.jawaban_benar,
     });
   }
 
-  async function handleLanjut() {
-    if (index + 1 < soalList.length) {
-      setIndex((i) => i + 1);
-      setDipilih(null);
-      setSudahJawab(false);
-    } else {
+  async function handleSelesai() {
+    setMenyimpan(true);
+    const progressItem = {
+      materi_id,
+      soal_dikerjakan: soalList.length,
+      soal_benar: skor,
+      status: 'selesai',
+    };
+    try {
+      await api.post('/progress', progressItem);
+    } catch (err) {
+      await simpanProgress(progressItem);
+      syncProgressKeServer();
+    } finally {
+      setMenyimpan(false);
       setSelesai(true);
-      const progressItem = {
-        materi_id,
-        soal_dikerjakan: soalList.length,
-        soal_benar: skor,
-        status: 'selesai',
-      };
-      try {
-        await api.post('/progress', progressItem);
-      } catch (err) {
-        await simpanProgress(progressItem);
-        syncProgressKeServer();
-      }
     }
   }
 
-  if (loading) return <p className="p-4 text-sm text-gray-500">Memuat soal...</p>;
+  function handleLanjut() {
+    if (index + 1 < soalList.length) setIndex((i) => i + 1);
+    else handleSelesai();
+  }
+
+  function handleSebelumnya() {
+    if (index > 0) setIndex((i) => i - 1);
+  }
+
+  if (loading) return <p className="container text-muted">Memuat soal...</p>;
 
   if (soalList.length === 0) {
     return (
-      <div className="p-4">
-        <p className="text-sm text-gray-500">Belum ada soal untuk materi ini.</p>
+      <div className="container">
+        <p className="text-muted">Belum ada soal untuk materi ini.</p>
       </div>
     );
   }
@@ -91,25 +98,43 @@ export default function Latihan() {
   if (selesai) {
     const persen = Math.round((skor / soalList.length) * 100);
     return (
-      <div className="mx-auto max-w-md p-4">
-        <div className="rounded-xl border border-gray-200 bg-white p-6 text-center shadow-sm">
-          <p className="text-5xl">{persen >= 80 ? '🎉' : persen >= 50 ? '👍' : '💪'}</p>
-          <h1 className="mt-3 text-xl font-bold text-gray-900">Latihan Selesai!</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            Skor kamu: {skor} dari {soalList.length} ({persen}%)
-          </p>
-          <div className="mt-4 flex justify-center gap-2">
+      <div className="container" style={{ maxWidth: 680 }}>
+        <div className="text-center" style={{ padding: '30px 0' }}>
+          <div
+            style={{
+              width: 80,
+              height: 80,
+              borderRadius: '50%',
+              background: 'var(--teal-bg)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              margin: '0 auto 16px',
+            }}
+          >
+            <i className="ti ti-trophy" style={{ fontSize: 36, color: 'var(--teal)' }} />
+          </div>
+          <div className="text-muted" style={{ fontSize: 15 }}>
+            Skor kamu
+          </div>
+          <div style={{ fontSize: 42, fontWeight: 500, color: 'var(--teal)' }}>{persen}</div>
+          <div className="mb-4" style={{ fontSize: 13, color: 'var(--text-2)' }}>
+            {skor} dari {soalList.length} soal benar
+          </div>
+          <div className="flex gap-3" style={{ maxWidth: 360, margin: '0 auto' }}>
             <button
-              onClick={() => navigate(`/murid/materi/${materi_id}`)}
-              className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              className="btn ghost"
+              style={{ flex: 1 }}
+              onClick={() => {
+                setIndex(0);
+                setJawaban({});
+                setSelesai(false);
+              }}
             >
-              Kembali ke Materi
+              Ulangi
             </button>
-            <button
-              onClick={() => navigate('/murid/dashboard')}
-              className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700"
-            >
-              Dashboard
+            <button className="btn" style={{ flex: 1 }} onClick={() => navigate(`/murid/materi/${materi_id}`)}>
+              Kembali ke materi
             </button>
           </div>
         </div>
@@ -118,53 +143,55 @@ export default function Latihan() {
   }
 
   return (
-    <div className="mx-auto max-w-md space-y-4 p-4">
-      <div className="flex items-center justify-between text-sm text-gray-500">
-        <span>
+    <div className="container" style={{ maxWidth: 680 }}>
+      <div className="q-progress">
+        <div className="q-bar">
+          <div style={{ width: `${((index + 1) / soalList.length) * 100}%` }} />
+        </div>
+        <div className="q-count">
           Soal {index + 1} dari {soalList.length}
-        </span>
-        <span>Skor: {skor}</span>
+        </div>
       </div>
 
-      <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-        <p className="mb-4 font-medium text-gray-900">{soal.pertanyaan}</p>
+      <div className="q-card">
+        <div className="flex gap-2 mb-2">
+          <span className="badge teal">Soal {index + 1}</span>
+          <span className={`badge ${WARNA_LEVEL[soal.tingkat_kesulitan] || 'amber'}`}>
+            {soal.tingkat_kesulitan || 'sedang'}
+          </span>
+        </div>
+        <div className="q-text">{soal.pertanyaan}</div>
 
-        <div className="space-y-2">
+        <div>
           {soal.pilihan.map((opsi, idx) => {
-            let kelas = 'border-gray-300 bg-white hover:bg-gray-50';
+            let kelas = 'opt';
             if (sudahJawab) {
-              if (idx === soal.jawaban_benar) kelas = 'border-green-500 bg-green-50';
-              else if (idx === dipilih) kelas = 'border-red-500 bg-red-50';
-              else kelas = 'border-gray-200 bg-white opacity-60';
+              if (idx === soal.jawaban_benar) kelas += ' right';
+              else if (idx === jawaban[index]) kelas += ' wrong';
             }
-
             return (
-              <button
-                key={idx}
-                onClick={() => handlePilih(idx)}
-                disabled={sudahJawab}
-                className={`w-full rounded-lg border px-3 py-2.5 text-left text-sm ${kelas}`}
-              >
+              <div key={idx} className={kelas} onClick={() => handlePilih(idx)}>
+                <div className="opt-l">{HURUF[idx]}</div>
                 {opsi}
-              </button>
+              </div>
             );
           })}
         </div>
 
-        {sudahJawab && (
-          <div className="mt-4 space-y-2">
-            <p className={`text-sm font-semibold ${dipilih === soal.jawaban_benar ? 'text-green-600' : 'text-red-600'}`}>
-              {dipilih === soal.jawaban_benar ? '✓ Jawaban benar!' : '✗ Jawaban kurang tepat'}
-            </p>
-            {soal.penjelasan && <p className="text-sm text-gray-600">{soal.penjelasan}</p>}
-            <button
-              onClick={handleLanjut}
-              className="w-full rounded-lg bg-brand-600 py-2.5 text-sm font-semibold text-white hover:bg-brand-700"
-            >
-              {index + 1 < soalList.length ? 'Soal Berikutnya' : 'Selesai'}
-            </button>
+        {sudahJawab && soal.penjelasan && (
+          <div className="explain">
+            <strong>Penjelasan:</strong> {soal.penjelasan}
           </div>
         )}
+      </div>
+
+      <div className="flex gap-3">
+        <button className="btn ghost" style={{ flex: 1 }} onClick={handleSebelumnya} disabled={index === 0}>
+          Sebelumnya
+        </button>
+        <button className="btn" style={{ flex: 1 }} onClick={handleLanjut} disabled={!sudahJawab || menyimpan}>
+          {index + 1 < soalList.length ? 'Soal berikutnya' : menyimpan ? 'Menyimpan...' : 'Selesai'}
+        </button>
       </div>
     </div>
   );

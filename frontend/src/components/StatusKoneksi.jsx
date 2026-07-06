@@ -31,21 +31,27 @@ export default function StatusKoneksi() {
   }, []);
 
   return (
-    <div className="relative">
-      <span
-        className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${
-          online ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-        }`}
-      >
-        <span className={`h-1.5 w-1.5 rounded-full ${online ? 'bg-green-500' : 'bg-red-500'}`} />
-        {online ? 'Online' : 'Offline'}
+    <div style={{ position: 'relative' }}>
+      <span className={`conn ${online ? '' : 'off'}`}>
+        <span className="dot" />
+        {online ? 'Terhubung' : 'Offline'}
       </span>
 
       {notif && (
         <div
-          className={`absolute right-0 top-8 z-20 w-56 rounded-lg px-3 py-2 text-xs shadow-lg ${
-            notif.jenis === 'success' ? 'bg-green-600 text-white' : 'bg-red-600 text-white'
-          }`}
+          className="badge"
+          style={{
+            position: 'absolute',
+            right: 0,
+            top: 28,
+            zIndex: 20,
+            width: 200,
+            whiteSpace: 'normal',
+            background: notif.jenis === 'success' ? 'var(--teal)' : 'var(--red)',
+            color: '#fff',
+            padding: '8px 12px',
+            boxShadow: '0 4px 12px rgba(0,0,0,.15)',
+          }}
         >
           {notif.pesan}
         </div>

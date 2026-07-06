@@ -1,7 +1,8 @@
-function warnaUntukPersen(persen) {
-  if (persen > 80) return 'bg-green-500';
-  if (persen >= 50) return 'bg-yellow-500';
-  return 'bg-red-500';
+function kelasUntukPersen(persen) {
+  if (persen > 80) return 'hi';
+  if (persen >= 50) return 'md';
+  if (persen >= 30) return 'lo';
+  return 'cr';
 }
 
 export default function ProgressBar({ persen = 0, label, showPercent = true }) {
@@ -10,16 +11,13 @@ export default function ProgressBar({ persen = 0, label, showPercent = true }) {
   return (
     <div>
       {(label || showPercent) && (
-        <div className="mb-1 flex items-center justify-between text-xs text-gray-600">
+        <div className="flex items-center justify-between mb-2" style={{ fontSize: 11, color: 'var(--muted)' }}>
           {label && <span>{label}</span>}
-          {showPercent && <span className="font-medium">{nilai}%</span>}
+          {showPercent && <span style={{ fontWeight: 500 }}>{nilai}%</span>}
         </div>
       )}
-      <div className="h-2 w-full overflow-hidden rounded-full bg-gray-200">
-        <div
-          className={`h-full rounded-full transition-all ${warnaUntukPersen(nilai)}`}
-          style={{ width: `${nilai}%` }}
-        />
+      <div className="bar">
+        <div className={kelasUntukPersen(nilai)} style={{ width: `${nilai}%` }} />
       </div>
     </div>
   );

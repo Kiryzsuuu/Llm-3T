@@ -38,12 +38,14 @@ router.post('/register', async (req, res, next) => {
       throw new ApiError('Email sudah terdaftar', 409);
     }
 
+    // Registrasi publik tidak boleh dipakai untuk membuat akun admin — hanya murid/guru.
+    // Akun admin hanya bisa dibuat oleh admin lain lewat POST /api/users.
     const hashed = await bcrypt.hash(password, 10);
     const user = await User.create({
       nama,
       email,
       password: hashed,
-      role: ['murid', 'guru', 'admin'].includes(role) ? role : 'murid',
+      role: ['murid', 'guru'].includes(role) ? role : 'murid',
       sekolah,
       kelas,
     });
@@ -84,6 +86,33 @@ router.get('/me', auth, async (req, res, next) => {
     const user = await User.findById(req.user.id);
     if (!user) throw new ApiError('User tidak ditemukan', 404);
     return ok(res, toPublicUser(user), 'Data user berhasil diambil');
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.put('/password', auth, async (req, res, next) => {
+  try {
+    const { passwordLama, passwordBaru } = req.body;
+    if (!passwordLama || !passwordBaru) {
+      throw new ApiError('Password lama dan password baru wajib diisi', 400);
+    }
+    if (passwordBaru.length < 6) {
+      throw new ApiError('Password baru minimal 6 karakter', 400);
+    }
+
+    const user = await User.findById(req.user.id).select('+password');
+    if (!user) throw new ApiError('User tidak ditemukan', 404);
+
+    const match = await bcrypt.compare(passwordLama, user.password);
+    if (!match) {
+      throw new ApiError('Password lama tidak sesuai', 401);
+    }
+
+    user.password = await bcrypt.hash(passwordBaru, 10);
+    await user.save();
+
+    return ok(res, null, 'Password berhasil diubah');
   } catch (err) {
     next(err);
   }

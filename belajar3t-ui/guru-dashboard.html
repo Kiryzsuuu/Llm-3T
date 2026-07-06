@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Dashboard Guru — Belajar 3T</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.0.0/dist/tabler-icons.min.css">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<nav class="nav"><div class="nav-in">
+  <a class="nav-logo" href="guru-dashboard.html"><i class="ti ti-book"></i>Belajar 3T</a>
+  <div class="nav-menu">
+    <a href="guru-dashboard.html" class="active">Dashboard</a>
+    <a href="guru-murid.html">Murid</a>
+    <a href="guru-materi.html">Materi</a>
+    <a href="guru-soal.html">Soal</a>
+  </div>
+  <div class="nav-right">
+    <span class="conn"><span class="dot"></span>Terhubung</span>
+    <div class="avatar" style="background:var(--purple-bg);color:var(--purple)">SR</div>
+  </div>
+</div></nav>
+
+<div class="container">
+  <div class="hero purple">
+    <div class="hero-left">
+      <div class="hero-avatar">SR</div>
+      <div>
+        <div class="hero-hi">Dashboard guru</div>
+        <div class="hero-name">Siti Rahayu · SDN 03 Kep. Selayar</div>
+      </div>
+    </div>
+    <div class="hero-pill">
+      <i class="ti ti-users" style="color:#CECBF6"></i>
+      <span class="hero-num">28</span>
+      <span class="hero-lbl">murid<br>aktif</span>
+    </div>
+  </div>
+
+  <div class="stats">
+    <div class="stat">
+      <div class="stat-ico" style="background:var(--teal-bg)"><i class="ti ti-trending-up" style="color:var(--teal)"></i></div>
+      <div class="stat-v">72%</div><div class="stat-l">Rata-rata skor · naik 4%</div>
+    </div>
+    <div class="stat">
+      <div class="stat-ico" style="background:var(--blue-bg)"><i class="ti ti-books" style="color:var(--blue)"></i></div>
+      <div class="stat-v">6</div><div class="stat-l">Bab sedang aktif</div>
+    </div>
+    <div class="stat">
+      <div class="stat-ico" style="background:var(--red-bg)"><i class="ti ti-alert-circle" style="color:var(--red)"></i></div>
+      <div class="stat-v">3</div><div class="stat-l">Murid perlu perhatian</div>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="panel">
+      <div class="p-title">Progress murid</div>
+      <div class="row">
+        <div class="row-av" style="background:var(--teal-bg);color:var(--teal)">DS</div>
+        <div><div class="row-name">Dewi Safitri</div><div class="row-sub">Kelas 8 · aktif hari ini</div></div>
+        <div class="row-right"><div class="row-pct" style="color:var(--teal)">91%</div><div class="row-bar"><div class="hi" style="width:91%"></div></div></div>
+      </div>
+      <div class="row">
+        <div class="row-av" style="background:var(--blue-bg);color:var(--blue)">AN</div>
+        <div><div class="row-name">Andi Nugroho</div><div class="row-sub">Kelas 8 · aktif 2 jam lalu</div></div>
+        <div class="row-right"><div class="row-pct" style="color:var(--blue)">76%</div><div class="row-bar"><div class="md" style="width:76%"></div></div></div>
+      </div>
+      <div class="row">
+        <div class="row-av" style="background:var(--amber-bg);color:var(--amber)">RP</div>
+        <div><div class="row-name">Rizal Pratama</div><div class="row-sub">Kelas 7 · aktif kemarin</div></div>
+        <div class="row-right"><div class="row-pct" style="color:var(--amber)">43%</div><div class="row-bar"><div class="lo" style="width:43%"></div></div></div>
+      </div>
+      <div class="row">
+        <div class="row-av" style="background:var(--red-bg);color:var(--red)">MH</div>
+        <div><div class="row-name">Maya Halimah</div><div class="row-sub">Kelas 7 · 5 hari tidak aktif</div></div>
+        <div class="row-right"><div class="row-pct" style="color:var(--red)">28%</div><div class="row-bar"><div class="cr" style="width:28%"></div></div></div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="p-title">Perlu tindakan</div>
+      <div class="alert red"><i class="ti ti-user-exclamation"></i><div>Maya Halimah tidak aktif 5 hari. Hubungi wali murid?</div></div>
+      <div class="alert amber"><i class="ti ti-file-alert"></i><div>Soal Bab 3 no. 7 salah dijawab oleh 80% murid — perlu dibahas ulang.</div></div>
+      <div class="alert blue"><i class="ti ti-refresh"></i><div>Update kurikulum IPA Bab 5 tersedia dari tim pusat.</div></div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

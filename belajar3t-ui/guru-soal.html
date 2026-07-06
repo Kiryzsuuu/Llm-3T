@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Kelola Soal — Belajar 3T</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.0.0/dist/tabler-icons.min.css">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<nav class="nav"><div class="nav-in">
+  <a class="nav-logo" href="guru-dashboard.html"><i class="ti ti-book"></i>Belajar 3T</a>
+  <div class="nav-menu">
+    <a href="guru-dashboard.html">Dashboard</a>
+    <a href="guru-murid.html">Murid</a>
+    <a href="guru-materi.html">Materi</a>
+    <a href="guru-soal.html" class="active">Soal</a>
+  </div>
+  <div class="nav-right">
+    <span class="conn"><span class="dot"></span>Terhubung</span>
+    <div class="avatar" style="background:var(--purple-bg);color:var(--purple)">SR</div>
+  </div>
+</div></nav>
+
+<div class="container">
+  <div id="listView">
+    <div class="sec-head" style="margin-bottom:14px">
+      <div class="sec-title" style="font-size:17px">Kelola soal</div>
+      <button class="btn" onclick="showForm()"><i class="ti ti-plus"></i> Tambah soal</button>
+    </div>
+
+    <div class="field" style="max-width:360px;margin-bottom:16px">
+      <label>Pilih materi</label>
+      <select><option>Sistem Pernapasan Manusia — IPA Kelas 8</option><option>Persamaan Linear — Matematika Kelas 8</option></select>
+    </div>
+
+    <div class="panel" style="margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;gap:12px">
+        <div style="flex:1">
+          <div style="font-size:11px;color:var(--muted);margin-bottom:4px">Soal 1 · <span style="color:var(--amber)">Sedang</span></div>
+          <div class="row-name" style="margin-bottom:8px">Organ tempat pertukaran gas O₂ dan CO₂ adalah...</div>
+          <div style="font-size:12px;color:var(--text-2)">A. Trakea &nbsp; B. Bronkus &nbsp; <span style="color:var(--teal);font-weight:500">C. Alveolus ✓</span> &nbsp; D. Diafragma</div>
+        </div>
+        <div style="white-space:nowrap">
+          <button class="btn ghost" style="padding:5px 9px" onclick="showForm()"><i class="ti ti-edit"></i></button>
+          <button class="btn danger" style="padding:5px 9px"><i class="ti ti-trash"></i></button>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div style="display:flex;justify-content:space-between;gap:12px">
+        <div style="flex:1">
+          <div style="font-size:11px;color:var(--muted);margin-bottom:4px">Soal 2 · <span style="color:var(--teal)">Mudah</span></div>
+          <div class="row-name" style="margin-bottom:8px">Proses masuknya oksigen ke paru-paru disebut...</div>
+          <div style="font-size:12px;color:var(--text-2)">A. Ekspirasi &nbsp; <span style="color:var(--teal);font-weight:500">B. Inspirasi ✓</span> &nbsp; C. Difusi &nbsp; D. Osmosis</div>
+        </div>
+        <div style="white-space:nowrap">
+          <button class="btn ghost" style="padding:5px 9px" onclick="showForm()"><i class="ti ti-edit"></i></button>
+          <button class="btn danger" style="padding:5px 9px"><i class="ti ti-trash"></i></button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="formView" style="display:none;max-width:640px">
+    <div class="breadcrumb"><a href="#" onclick="showList()">Kelola soal</a> · Tambah soal</div>
+    <div style="font-size:18px;font-weight:500;margin-bottom:18px">Tambah soal baru</div>
+    <div class="field"><label>Pertanyaan</label><textarea rows="3" placeholder="Tulis pertanyaan..."></textarea></div>
+    <div class="field"><label>Pilihan jawaban</label>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <div style="display:flex;align-items:center;gap:10px"><input type="radio" name="benar" style="width:auto"><div class="opt-l">A</div><input type="text" placeholder="Pilihan A"></div>
+        <div style="display:flex;align-items:center;gap:10px"><input type="radio" name="benar" style="width:auto"><div class="opt-l">B</div><input type="text" placeholder="Pilihan B"></div>
+        <div style="display:flex;align-items:center;gap:10px"><input type="radio" name="benar" style="width:auto" checked><div class="opt-l">C</div><input type="text" placeholder="Pilihan C"></div>
+        <div style="display:flex;align-items:center;gap:10px"><input type="radio" name="benar" style="width:auto"><div class="opt-l">D</div><input type="text" placeholder="Pilihan D"></div>
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin-top:6px">Pilih radio button di samping jawaban yang benar.</div>
+    </div>
+    <div class="field"><label>Penjelasan jawaban</label><textarea rows="2" placeholder="Jelaskan mengapa jawaban tersebut benar..."></textarea></div>
+    <div class="field" style="max-width:200px"><label>Tingkat kesulitan</label><select><option>Mudah</option><option>Sedang</option><option>Sulit</option></select></div>
+    <div style="display:flex;gap:10px;margin-top:8px">
+      <button class="btn ghost" style="flex:1" onclick="showList()">Batal</button>
+      <button class="btn" style="flex:2" onclick="showList()">Simpan soal</button>
+    </div>
+  </div>
+</div>
+
+<script>
+function showForm(){document.getElementById('listView').style.display='none';document.getElementById('formView').style.display='block';window.scrollTo(0,0)}
+function showList(){document.getElementById('formView').style.display='none';document.getElementById('listView').style.display='block'}
+</script>
+</body>
+</html>

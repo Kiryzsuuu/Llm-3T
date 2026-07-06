@@ -110,4 +110,4 @@ async function generateSoal({ topik, materiId, jumlah = 5, tingkat_kesulitan = '
   return soal;
 }
 
-module.exports = { tanyaAI, generateSoal };
+module.exports = { tanyaAI, generateSoal, PESAN_TIDAK_TAHU };

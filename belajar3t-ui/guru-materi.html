@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Kelola Materi — Belajar 3T</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.0.0/dist/tabler-icons.min.css">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<nav class="nav"><div class="nav-in">
+  <a class="nav-logo" href="guru-dashboard.html"><i class="ti ti-book"></i>Belajar 3T</a>
+  <div class="nav-menu">
+    <a href="guru-dashboard.html">Dashboard</a>
+    <a href="guru-murid.html">Murid</a>
+    <a href="guru-materi.html" class="active">Materi</a>
+    <a href="guru-soal.html">Soal</a>
+  </div>
+  <div class="nav-right">
+    <span class="conn"><span class="dot"></span>Terhubung</span>
+    <div class="avatar" style="background:var(--purple-bg);color:var(--purple)">SR</div>
+  </div>
+</div></nav>
+
+<div class="container">
+  <!-- LIST VIEW -->
+  <div id="listView">
+    <div class="sec-head" style="margin-bottom:14px">
+      <div class="sec-title" style="font-size:17px">Kelola materi</div>
+      <button class="btn" onclick="showForm()"><i class="ti ti-plus"></i> Tambah materi</button>
+    </div>
+
+    <div class="panel" style="padding:6px 16px">
+      <table class="tbl">
+        <thead><tr><th>Judul</th><th>Mapel</th><th>Kelas</th><th>Status</th><th></th></tr></thead>
+        <tbody>
+          <tr>
+            <td class="row-name">Sistem Pernapasan Manusia</td><td>IPA</td><td>8</td>
+            <td><span class="badge teal">Aktif</span></td>
+            <td style="text-align:right;white-space:nowrap">
+              <button class="btn ghost" style="padding:5px 9px" onclick="showForm()"><i class="ti ti-edit"></i></button>
+              <button class="btn danger" style="padding:5px 9px" onclick="confirmDel('Sistem Pernapasan Manusia')"><i class="ti ti-trash"></i></button>
+            </td>
+          </tr>
+          <tr>
+            <td class="row-name">Persamaan Linear Satu Variabel</td><td>Matematika</td><td>8</td>
+            <td><span class="badge teal">Aktif</span></td>
+            <td style="text-align:right;white-space:nowrap">
+              <button class="btn ghost" style="padding:5px 9px" onclick="showForm()"><i class="ti ti-edit"></i></button>
+              <button class="btn danger" style="padding:5px 9px" onclick="confirmDel('Persamaan Linear')"><i class="ti ti-trash"></i></button>
+            </td>
+          </tr>
+          <tr>
+            <td class="row-name">Teks Eksplanasi</td><td>B. Indonesia</td><td>8</td>
+            <td><span class="badge amber">Proses</span></td>
+            <td style="text-align:right;white-space:nowrap">
+              <button class="btn ghost" style="padding:5px 9px" onclick="showForm()"><i class="ti ti-edit"></i></button>
+              <button class="btn danger" style="padding:5px 9px" onclick="confirmDel('Teks Eksplanasi')"><i class="ti ti-trash"></i></button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- FORM VIEW -->
+  <div id="formView" style="display:none;max-width:640px">
+    <div class="breadcrumb"><a href="#" onclick="showList()">Kelola materi</a> · Tambah materi</div>
+    <div style="font-size:18px;font-weight:500;margin-bottom:18px">Tambah materi baru</div>
+    <div class="field"><label>Judul materi</label><input type="text" placeholder="mis. Sistem Pernapasan Manusia"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
+      <div class="field"><label>Mata pelajaran</label><select><option>IPA</option><option>Matematika</option><option>B. Indonesia</option><option>IPS</option></select></div>
+      <div class="field"><label>Jenjang</label><select><option>SD</option><option>SMP</option><option>SMA</option></select></div>
+      <div class="field"><label>Kelas</label><select><option>7</option><option>8</option><option>9</option></select></div>
+    </div>
+    <div class="field"><label>Konten materi</label><textarea rows="8" placeholder="Tulis atau tempel isi materi di sini..."></textarea></div>
+    <div class="field"><label>Lampiran (opsional)</label>
+      <div style="border:1px dashed var(--border-strong);border-radius:var(--r-ctl);padding:20px;text-align:center;color:var(--muted)">
+        <i class="ti ti-upload" style="font-size:24px"></i>
+        <div style="font-size:12px;margin-top:6px">Seret file PDF ke sini atau klik untuk memilih</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:8px">
+      <button class="btn ghost" style="flex:1" onclick="showList()">Batal</button>
+      <button class="btn" style="flex:2" onclick="showList()">Simpan materi</button>
+    </div>
+  </div>
+</div>
+
+<!-- Delete dialog -->
+<div id="delDialog" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:20;align-items:center;justify-content:center">
+  <div style="background:var(--card);border-radius:16px;padding:22px;max-width:340px;margin:16px">
+    <div style="font-size:15px;font-weight:500;margin-bottom:6px">Hapus materi?</div>
+    <div style="font-size:13px;color:var(--text-2);margin-bottom:18px" id="delText">Materi ini akan dihapus permanen.</div>
+    <div style="display:flex;gap:10px">
+      <button class="btn ghost" style="flex:1" onclick="closeDel()">Batal</button>
+      <button class="btn danger" style="flex:1" onclick="closeDel()">Hapus</button>
+    </div>
+  </div>
+</div>
+
+<script>
+function showForm(){document.getElementById('listView').style.display='none';document.getElementById('formView').style.display='block';window.scrollTo(0,0)}
+function showList(){document.getElementById('formView').style.display='none';document.getElementById('listView').style.display='block'}
+function confirmDel(name){document.getElementById('delText').textContent=`"${name}" akan dihapus permanen dan tidak bisa dikembalikan.`;document.getElementById('delDialog').style.display='flex'}
+function closeDel(){document.getElementById('delDialog').style.display='none'}
+</script>
+</body>
+</html>

@@ -35,3 +35,9 @@ Thumbs.db
 
 # Large report files (adjust if you want to track this)
 LAPORAN_TEKNIS.pdf
+
+# Materi kurikulum mentah dan dataset hasil generate (bisa besar, tidak perlu di-commit)
+edunusa-model/kurikulum/*
+!edunusa-model/kurikulum/.gitkeep
+!edunusa-model/kurikulum/README.md
+edunusa-model/training-data/dataset-final.jsonl

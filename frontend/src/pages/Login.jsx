@@ -1,7 +1,13 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 import api from '../utils/api';
-import { saveSession } from '../utils/auth';
+import { saveSession, isLoggedIn, getRole } from '../utils/auth';
+
+const HOME_BY_ROLE = {
+  murid: '/murid/dashboard',
+  guru: '/guru/dashboard',
+  admin: '/admin',
+};
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -10,6 +16,11 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
+  // Kalau sudah login, jangan tampilkan form login lagi — langsung arahkan ke dashboard masing-masing.
+  if (isLoggedIn()) {
+    return <Navigate to={HOME_BY_ROLE[getRole()] || '/login'} replace />;
+  }
+
   async function handleSubmit(e) {
     e.preventDefault();
     setError('');
@@ -17,10 +28,7 @@ export default function Login() {
     try {
       const { data } = await api.post('/auth/login', { email, password });
       saveSession(data.token, data.user);
-
-      if (data.user.role === 'murid') navigate('/murid/dashboard');
-      else if (data.user.role === 'guru') navigate('/guru/dashboard');
-      else navigate('/guru/dashboard');
+      navigate(HOME_BY_ROLE[data.user.role] || '/login');
     } catch (err) {
       setError(err.response?.data?.message || 'Gagal masuk');
     } finally {
@@ -29,43 +37,65 @@ export default function Login() {
   }
 
   return (
-    <div className="flex min-h-[calc(100vh-56px)] items-center justify-center px-4">
-      <div className="w-full max-w-sm rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-        <h1 className="mb-1 text-xl font-bold text-gray-900">Masuk ke Belajar 3T</h1>
-        <p className="mb-6 text-sm text-gray-500">Platform belajar untuk daerah 3T</p>
+    <div className="login-wrap">
+      <div className="login-brand">
+        <div className="flex items-center gap-3 mb-4">
+          <i className="ti ti-book" style={{ fontSize: 30, color: '#1D9E75' }} />
+          <span style={{ fontSize: 22, fontWeight: 500, color: '#E1F5EE' }}>Belajar 3T</span>
+        </div>
+        <div style={{ fontSize: 26, fontWeight: 500, color: '#E1F5EE', lineHeight: 1.35, maxWidth: 340 }}>
+          Belajar tanpa batas, di mana saja.
+        </div>
+        <div style={{ fontSize: 13, color: '#9FE1CB', marginTop: 12, maxWidth: 340 }}>
+          Platform edukasi offline-first untuk daerah Terdepan, Terluar, dan Tertinggal Indonesia.
+        </div>
+      </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">Email</label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">Password</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
-            />
+      <div className="login-form">
+        <div className="login-card">
+          <div style={{ fontSize: 18, fontWeight: 500, marginBottom: 4 }}>Selamat datang kembali</div>
+          <div className="text-muted mb-4" style={{ fontSize: 13 }}>
+            Masuk untuk melanjutkan belajar
           </div>
 
-          {error && <p className="text-sm text-red-600">{error}</p>}
+          <form onSubmit={handleSubmit}>
+            <div className="field">
+              <label>Email</label>
+              <input
+                type="email"
+                placeholder="nama@sekolah.id"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
+            </div>
+            <div className="field">
+              <label>Kata sandi</label>
+              <input
+                type="password"
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
+            </div>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full rounded-lg bg-brand-600 py-2.5 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-50"
-          >
-            {loading ? 'Memproses...' : 'Masuk'}
-          </button>
-        </form>
+            {error && (
+              <div className="alert red mb-3">
+                <i className="ti ti-alert-circle" />
+                <div>{error}</div>
+              </div>
+            )}
+
+            <button type="submit" className="btn big" disabled={loading}>
+              {loading ? 'Memproses...' : 'Masuk'}
+            </button>
+          </form>
+
+          <div className="text-center text-muted mt-3" style={{ fontSize: 12 }}>
+            Belum punya akun? Hubungi guru atau admin sekolahmu.
+          </div>
+        </div>
       </div>
     </div>
   );

@@ -1,9 +1,21 @@
 require('dotenv').config();
+const dns = require('dns');
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 
+// Sebagian jaringan (router/ISP/sekolah) gagal me-resolve DNS SRV record yang dipakai
+// mongodb+srv://, meski koneksi internet normal. Memaksa pakai resolver DNS publik di sini
+// memperbaiki error "querySrv ECONNREFUSED" tanpa perlu mengubah setting jaringan sistem.
+// Bisa dimatikan dengan DNS_OVERRIDE=false di .env bila resolver default sudah bekerja baik.
+if (process.env.DNS_OVERRIDE !== 'false') {
+  const dnsServers = (process.env.DNS_SERVERS || '1.1.1.1,8.8.8.8').split(',').map((s) => s.trim());
+  dns.setServers(dnsServers);
+}
+
 const authRoutes = require('./routes/auth');
+const usersRoutes = require('./routes/users');
+const mapelRoutes = require('./routes/mapel');
 const materiRoutes = require('./routes/materi');
 const soalRoutes = require('./routes/soal');
 const progressRoutes = require('./routes/progress');
@@ -18,6 +30,8 @@ app.use(express.urlencoded({ extended: true }));
 app.get('/api/health', (req, res) => res.json({ success: true, data: { status: 'ok' }, message: 'OK' }));
 
 app.use('/api/auth', authRoutes);
+app.use('/api/users', usersRoutes);
+app.use('/api/mapel', mapelRoutes);
 app.use('/api/materi', materiRoutes);
 app.use('/api/soal', soalRoutes);
 app.use('/api/progress', progressRoutes);

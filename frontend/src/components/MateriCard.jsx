@@ -1,23 +1,31 @@
 import { Link } from 'react-router-dom';
 import ProgressBar from './ProgressBar';
+import { gayaMapel, WARNA_HEX, BG_HEX } from '../utils/mapelStyle';
 
 export default function MateriCard({ materi, persenProgress }) {
+  const { icon, warna } = gayaMapel(materi.mapel);
+
   return (
-    <Link
-      to={`/murid/materi/${materi._id}`}
-      className="block rounded-xl border border-gray-200 bg-white p-4 shadow-sm transition hover:shadow-md active:scale-[0.99]"
-    >
-      <div className="mb-2 flex items-start justify-between gap-2">
-        <div>
-          <p className="text-xs font-medium uppercase tracking-wide text-brand-600">{materi.mapel}</p>
-          <h3 className="font-semibold text-gray-900">{materi.judul}</h3>
+    <Link to={`/murid/materi/${materi._id}`} className="mp">
+      <div className="mp-top">
+        <div className="mp-ico" style={{ background: BG_HEX[warna] }}>
+          <i className={`ti ${icon}`} style={{ color: WARNA_HEX[warna] }} />
         </div>
-        <span className="whitespace-nowrap rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
-          {materi.jenjang} · Kelas {materi.kelas}
-        </span>
+        {typeof persenProgress === 'number' && (
+          <span className="mp-pct" style={{ color: WARNA_HEX[warna] }}>
+            {Math.round(persenProgress)}%
+          </span>
+        )}
       </div>
-      {materi.bab && <p className="mb-3 text-sm text-gray-500">{materi.bab}</p>}
-      {typeof persenProgress === 'number' && <ProgressBar persen={persenProgress} />}
+      <div className="mp-name">{materi.judul}</div>
+      <div className="mp-sub">
+        {materi.mapel} · {materi.jenjang} · Kelas {materi.kelas}
+      </div>
+      {typeof persenProgress === 'number' && (
+        <div className="bar">
+          <div style={{ width: `${Math.round(persenProgress)}%`, background: `var(--${warna}-acc)` }} />
+        </div>
+      )}
     </Link>
   );
 }

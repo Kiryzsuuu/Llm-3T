@@ -5,12 +5,14 @@ const FORM_KOSONG = { judul: '', mapel: '', jenjang: 'SD', kelas: '', bab: '', k
 
 export default function GuruMateri() {
   const [materi, setMateri] = useState([]);
+  const [mapelList, setMapelList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState(null);
   const [form, setForm] = useState(FORM_KOSONG);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  const [hapusTarget, setHapusTarget] = useState(null);
 
   async function load() {
     setLoading(true);
@@ -24,10 +26,11 @@ export default function GuruMateri() {
 
   useEffect(() => {
     load();
+    api.get('/mapel').then(({ data }) => setMapelList(data));
   }, []);
 
   function handleTambahBaru() {
-    setForm(FORM_KOSONG);
+    setForm({ ...FORM_KOSONG, mapel: mapelList[0]?.nama || '' });
     setEditId(null);
     setShowForm(true);
     setError('');
@@ -40,9 +43,9 @@ export default function GuruMateri() {
     setError('');
   }
 
-  async function handleHapus(id) {
-    if (!window.confirm('Hapus materi ini?')) return;
-    await api.delete(`/materi/${id}`);
+  async function handleHapus() {
+    await api.delete(`/materi/${hapusTarget._id}`);
+    setHapusTarget(null);
     load();
   }
 
@@ -65,118 +68,170 @@ export default function GuruMateri() {
     }
   }
 
-  return (
-    <div className="mx-auto max-w-3xl space-y-4 p-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold text-gray-900">Kelola Materi</h1>
-        <button
-          onClick={handleTambahBaru}
-          className="rounded-lg bg-brand-600 px-3 py-2 text-sm font-semibold text-white hover:bg-brand-700"
-        >
-          + Materi Baru
-        </button>
-      </div>
+  if (showForm) {
+    return (
+      <div className="container" style={{ maxWidth: 640 }}>
+        <div className="breadcrumb">
+          <a onClick={() => setShowForm(false)} style={{ cursor: 'pointer' }}>
+            Kelola materi
+          </a>{' '}
+          · {editId ? 'Edit materi' : 'Tambah materi'}
+        </div>
+        <div className="mb-4" style={{ fontSize: 18, fontWeight: 500 }}>
+          {editId ? 'Edit materi' : 'Tambah materi baru'}
+        </div>
 
-      {showForm && (
-        <form onSubmit={handleSubmit} className="space-y-3 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-          <h2 className="font-semibold text-gray-900">{editId ? 'Edit Materi' : 'Materi Baru'}</h2>
-
-          <input
-            type="text"
-            placeholder="Judul"
-            value={form.judul}
-            onChange={(e) => setForm({ ...form, judul: e.target.value })}
-            required
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-          />
-          <div className="grid grid-cols-3 gap-2">
+        <form onSubmit={handleSubmit}>
+          <div className="field">
+            <label>Judul materi</label>
             <input
               type="text"
-              placeholder="Mapel"
-              value={form.mapel}
-              onChange={(e) => setForm({ ...form, mapel: e.target.value })}
+              placeholder="mis. Sistem Pernapasan Manusia"
+              value={form.judul}
+              onChange={(e) => setForm({ ...form, judul: e.target.value })}
               required
-              className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
-            />
-            <select
-              value={form.jenjang}
-              onChange={(e) => setForm({ ...form, jenjang: e.target.value })}
-              className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
-            >
-              <option value="SD">SD</option>
-              <option value="SMP">SMP</option>
-              <option value="SMA">SMA</option>
-            </select>
-            <input
-              type="text"
-              placeholder="Kelas"
-              value={form.kelas}
-              onChange={(e) => setForm({ ...form, kelas: e.target.value })}
-              required
-              className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
             />
           </div>
-          <input
-            type="text"
-            placeholder="Bab (opsional)"
-            value={form.bab}
-            onChange={(e) => setForm({ ...form, bab: e.target.value })}
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-          />
-          <textarea
-            placeholder="Konten materi"
-            value={form.konten}
-            onChange={(e) => setForm({ ...form, konten: e.target.value })}
-            required
-            rows={6}
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-          />
 
-          {error && <p className="text-sm text-red-600">{error}</p>}
+          <div className="grid-2" style={{ gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
+            <div className="field">
+              <label>Mata pelajaran</label>
+              <select value={form.mapel} onChange={(e) => setForm({ ...form, mapel: e.target.value })} required>
+                <option value="" disabled>
+                  Pilih mapel
+                </option>
+                {mapelList.map((m) => (
+                  <option key={m._id} value={m.nama}>
+                    {m.nama}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="field">
+              <label>Jenjang</label>
+              <select value={form.jenjang} onChange={(e) => setForm({ ...form, jenjang: e.target.value })}>
+                <option value="SD">SD</option>
+                <option value="SMP">SMP</option>
+                <option value="SMA">SMA</option>
+              </select>
+            </div>
+            <div className="field">
+              <label>Kelas</label>
+              <input
+                type="text"
+                placeholder="mis. 8"
+                value={form.kelas}
+                onChange={(e) => setForm({ ...form, kelas: e.target.value })}
+                required
+              />
+            </div>
+          </div>
 
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => setShowForm(false)}
-              className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-            >
+          <div className="field">
+            <label>Bab (opsional)</label>
+            <input type="text" value={form.bab} onChange={(e) => setForm({ ...form, bab: e.target.value })} />
+          </div>
+
+          <div className="field">
+            <label>Konten materi</label>
+            <textarea
+              rows={8}
+              placeholder="Tulis atau tempel isi materi di sini..."
+              value={form.konten}
+              onChange={(e) => setForm({ ...form, konten: e.target.value })}
+              required
+            />
+          </div>
+
+          {error && (
+            <div className="alert red mb-3">
+              <i className="ti ti-alert-circle" />
+              <div>{error}</div>
+            </div>
+          )}
+
+          <div className="flex gap-3 mt-2">
+            <button type="button" className="btn ghost" style={{ flex: 1 }} onClick={() => setShowForm(false)}>
               Batal
             </button>
-            <button
-              type="submit"
-              disabled={saving}
-              className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-50"
-            >
-              {saving ? 'Menyimpan...' : 'Simpan'}
+            <button type="submit" className="btn" style={{ flex: 2 }} disabled={saving}>
+              {saving ? 'Menyimpan...' : 'Simpan materi'}
             </button>
           </div>
         </form>
-      )}
+      </div>
+    );
+  }
 
-      {loading ? (
-        <p className="text-sm text-gray-500">Memuat materi...</p>
-      ) : materi.length === 0 ? (
-        <p className="text-sm text-gray-500">Belum ada materi. Tambahkan materi baru.</p>
-      ) : (
-        <div className="space-y-2">
-          {materi.map((m) => (
-            <div key={m._id} className="flex items-center justify-between rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
-              <div>
-                <p className="font-medium text-gray-900">{m.judul}</p>
-                <p className="text-xs text-gray-500">
-                  {m.mapel} · {m.jenjang} · Kelas {m.kelas}
-                </p>
-              </div>
-              <div className="flex gap-2">
-                <button onClick={() => handleEdit(m)} className="text-sm font-medium text-brand-600">
-                  Edit
-                </button>
-                <button onClick={() => handleHapus(m._id)} className="text-sm font-medium text-red-600">
-                  Hapus
-                </button>
-              </div>
+  return (
+    <div className="container">
+      <div className="sec-head mb-4">
+        <div className="sec-title" style={{ fontSize: 17 }}>
+          Kelola materi
+        </div>
+        <button className="btn" onClick={handleTambahBaru}>
+          <i className="ti ti-plus" /> Tambah materi
+        </button>
+      </div>
+
+      <div className="panel tbl-wrap" style={{ padding: '6px 16px' }}>
+        {loading ? (
+          <p className="text-muted" style={{ padding: '10px 0' }}>
+            Memuat materi...
+          </p>
+        ) : materi.length === 0 ? (
+          <p className="text-muted" style={{ padding: '10px 0' }}>
+            Belum ada materi. Tambahkan materi baru.
+          </p>
+        ) : (
+          <table className="tbl">
+            <thead>
+              <tr>
+                <th>Judul</th>
+                <th>Mapel</th>
+                <th>Kelas</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {materi.map((m) => (
+                <tr key={m._id}>
+                  <td className="row-name">{m.judul}</td>
+                  <td>{m.mapel}</td>
+                  <td>{m.kelas}</td>
+                  <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                    <button className="btn ghost" style={{ padding: '5px 9px' }} onClick={() => handleEdit(m)}>
+                      <i className="ti ti-edit" />
+                    </button>
+                    <button
+                      className="btn danger"
+                      style={{ padding: '5px 9px', marginLeft: 6 }}
+                      onClick={() => setHapusTarget(m)}
+                    >
+                      <i className="ti ti-trash" />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {hapusTarget && (
+        <div className="modal-overlay">
+          <div className="modal-card">
+            <div className="modal-title">Hapus materi?</div>
+            <div className="modal-text">"{hapusTarget.judul}" akan dihapus permanen dan tidak bisa dikembalikan.</div>
+            <div className="flex gap-3">
+              <button className="btn ghost" style={{ flex: 1 }} onClick={() => setHapusTarget(null)}>
+                Batal
+              </button>
+              <button className="btn danger" style={{ flex: 1 }} onClick={handleHapus}>
+                Hapus
+              </button>
             </div>
-          ))}
+          </div>
         </div>
       )}
     </div>

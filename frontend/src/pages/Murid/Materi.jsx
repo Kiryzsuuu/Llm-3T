@@ -1,12 +1,16 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '../../utils/api';
-import { cacheMateri } from '../../utils/offlineCache';
+import { cacheMateri, isMateriOffline } from '../../utils/offlineCache';
 import { getAllItems } from '../../utils/localDB';
-import MateriCard from '../../components/MateriCard';
+import { gayaMapel, WARNA_HEX, BG_HEX } from '../../utils/mapelStyle';
 
 export default function MuridMateri() {
+  const navigate = useNavigate();
   const [materi, setMateri] = useState([]);
+  const [offlineIds, setOfflineIds] = useState(new Set());
   const [mapelAktif, setMapelAktif] = useState('semua');
+  const [cari, setCari] = useState('');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -15,6 +19,9 @@ export default function MuridMateri() {
         const { data } = await api.get('/materi');
         setMateri(data);
         await cacheMateri(data);
+
+        const status = await Promise.all(data.map((m) => isMateriOffline(m._id)));
+        setOfflineIds(new Set(data.filter((_, i) => status[i]).map((m) => m._id)));
       } catch (err) {
         setMateri(await getAllItems('materi'));
       } finally {
@@ -25,35 +32,78 @@ export default function MuridMateri() {
   }, []);
 
   const mapelList = useMemo(() => ['semua', ...new Set(materi.map((m) => m.mapel))], [materi]);
-  const materiTampil = mapelAktif === 'semua' ? materi : materi.filter((m) => m.mapel === mapelAktif);
+
+  const materiTampil = materi.filter((m) => {
+    const cocokMapel = mapelAktif === 'semua' || m.mapel === mapelAktif;
+    const cocokCari = !cari || m.judul.toLowerCase().includes(cari.toLowerCase());
+    return cocokMapel && cocokCari;
+  });
 
   return (
-    <div className="mx-auto max-w-3xl space-y-4 p-4">
-      <h1 className="text-xl font-bold text-gray-900">Mata Pelajaran</h1>
+    <div className="container">
+      <div className="sec-head mb-4">
+        <div className="sec-title" style={{ fontSize: 17 }}>
+          Semua materi
+        </div>
+      </div>
 
-      <div className="flex gap-2 overflow-x-auto pb-1">
+      <div className="toolbar">
+        <div className="search">
+          <i className="ti ti-search" />
+          <input type="text" placeholder="Cari materi..." value={cari} onChange={(e) => setCari(e.target.value)} />
+        </div>
+      </div>
+
+      <div className="chips">
         {mapelList.map((mapel) => (
-          <button
+          <div
             key={mapel}
+            className={`chip ${mapelAktif === mapel ? 'active' : ''}`}
             onClick={() => setMapelAktif(mapel)}
-            className={`whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-medium ${
-              mapelAktif === mapel ? 'bg-brand-600 text-white' : 'bg-white text-gray-600 border border-gray-200'
-            }`}
           >
             {mapel === 'semua' ? 'Semua' : mapel}
-          </button>
+          </div>
         ))}
       </div>
 
       {loading ? (
-        <p className="text-sm text-gray-500">Memuat materi...</p>
+        <p className="text-muted">Memuat materi...</p>
       ) : materiTampil.length === 0 ? (
-        <p className="text-sm text-gray-500">Belum ada materi tersedia.</p>
+        <p className="text-muted">Belum ada materi tersedia.</p>
       ) : (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          {materiTampil.map((m) => (
-            <MateriCard key={m._id} materi={m} />
-          ))}
+        <div>
+          {materiTampil.map((m) => {
+            const { icon, warna } = gayaMapel(m.mapel);
+            const offline = offlineIds.has(m._id);
+            return (
+              <div
+                key={m._id}
+                className="panel mb-3"
+                style={{ cursor: 'pointer' }}
+                onClick={() => navigate(`/murid/materi/${m._id}`)}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="mp-ico" style={{ background: BG_HEX[warna], width: 40, height: 40 }}>
+                    <i className={`ti ${icon}`} style={{ color: WARNA_HEX[warna] }} />
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <div className="row-name">{m.judul}</div>
+                      {offline && (
+                        <span className="badge teal">
+                          <i className="ti ti-download" style={{ fontSize: 11 }} /> Offline
+                        </span>
+                      )}
+                    </div>
+                    <div className="row-sub">
+                      {m.mapel} · {m.jenjang} · Kelas {m.kelas}
+                      {m.bab ? ` · ${m.bab}` : ''}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

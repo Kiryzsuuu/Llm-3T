@@ -1,79 +1,130 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import api from '../utils/api';
 
-export default function AITutor({ materiId, jenjang }) {
+const PESAN_PEMBUKA = 'Halo! Aku EduNusa. Ada yang ingin kamu tanyakan tentang pelajaranmu?';
+
+export default function AITutor({ materiId, jenjang, tagPembuka, saran = [] }) {
   const [pertanyaan, setPertanyaan] = useState('');
   const [riwayat, setRiwayat] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [statusOnline, setStatusOnline] = useState(null);
 
-  async function handleSubmit(e) {
-    e.preventDefault();
-    if (!pertanyaan.trim()) return;
+  useEffect(() => {
+    let batal = false;
+
+    async function cekStatus() {
+      try {
+        const { data } = await api.get('/ai/status');
+        if (!batal) setStatusOnline(data.status === 'online');
+      } catch (err) {
+        if (!batal) setStatusOnline(false);
+      }
+    }
+
+    cekStatus();
+    const interval = setInterval(cekStatus, 30000);
+    return () => {
+      batal = true;
+      clearInterval(interval);
+    };
+  }, []);
+
+  async function kirimPertanyaan(teks) {
+    if (!teks.trim() || loading) return;
 
     setLoading(true);
     setError('');
-    const pertanyaanDikirim = pertanyaan;
     setPertanyaan('');
 
     try {
       const { data } = await api.post('/ai/tanya', {
-        pertanyaan: pertanyaanDikirim,
+        pertanyaan: teks,
         materi_id: materiId,
         jenjang,
       });
-      setRiwayat((prev) => [...prev, { pertanyaan: pertanyaanDikirim, ...data }]);
+      setRiwayat((prev) => [...prev, { pertanyaan: teks, ...data }]);
     } catch (err) {
-      setError(err.response?.data?.message || 'AI Tutor sedang tidak tersedia. Coba lagi nanti.');
+      setError(err.response?.data?.message || 'EduNusa sedang tidak tersedia. Coba lagi nanti.');
     } finally {
       setLoading(false);
     }
   }
 
-  return (
-    <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-      <h3 className="mb-3 flex items-center gap-2 font-semibold text-gray-900">
-        <span aria-hidden>🤖</span> AI Tutor
-      </h3>
+  function handleSubmit(e) {
+    e.preventDefault();
+    kirimPertanyaan(pertanyaan);
+  }
 
-      <div className="mb-3 max-h-64 space-y-3 overflow-y-auto">
-        {riwayat.length === 0 && (
-          <p className="text-sm text-gray-500">Tanya apa saja tentang materi ini ke AI Tutor.</p>
-        )}
-        {riwayat.map((item, i) => (
-          <div key={i} className="space-y-1.5">
-            <p className="ml-auto w-fit max-w-[85%] rounded-lg rounded-br-none bg-brand-600 px-3 py-1.5 text-sm text-white">
-              {item.pertanyaan}
-            </p>
-            <p className="w-fit max-w-[85%] rounded-lg rounded-bl-none bg-gray-100 px-3 py-1.5 text-sm text-gray-800">
-              {item.jawaban}
-            </p>
-            {typeof item.confidence === 'number' && (
-              <p className="text-[11px] text-gray-400">Keyakinan jawaban: {Math.round(item.confidence * 100)}%</p>
-            )}
+  return (
+    <div className="edunusa">
+      <div className="edu-head">
+        <div className="edu-logo">
+          <i className="ti ti-sparkles" />
+        </div>
+        <div>
+          <div className="edu-name">EduNusa</div>
+          <div className="edu-tag">{tagPembuka || 'Asisten belajarmu · berbasis kurikulum Kemendikbud'}</div>
+        </div>
+        {statusOnline !== null && (
+          <div className={`edu-status ${statusOnline ? '' : 'off'}`}>
+            <span className="edu-dot" />
+            {statusOnline ? 'Aktif' : 'Offline'}
           </div>
-        ))}
-        {loading && <p className="text-sm text-gray-400">AI Tutor sedang berpikir...</p>}
+        )}
       </div>
 
-      {error && <p className="mb-2 text-sm text-red-600">{error}</p>}
+      <div className="edu-body">
+        <div className="bubble bot">{PESAN_PEMBUKA}</div>
 
-      <form onSubmit={handleSubmit} className="flex gap-2">
-        <input
-          type="text"
-          value={pertanyaan}
-          onChange={(e) => setPertanyaan(e.target.value)}
-          placeholder="Tulis pertanyaanmu..."
-          className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
-        />
-        <button
-          type="submit"
-          disabled={loading}
-          className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-        >
-          Kirim
-        </button>
-      </form>
+        {riwayat.map((item, i) => (
+          <div key={i}>
+            <div className="bubble user">{item.pertanyaan}</div>
+            <div className="bubble bot">
+              {item.jawaban}
+              {typeof item.confidence === 'number' && (
+                <div className="src-pill">
+                  <i className="ti ti-gauge" />
+                  Keyakinan jawaban: {Math.round(item.confidence * 100)}%
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
+
+        {loading && <div className="bubble bot text-muted">EduNusa sedang berpikir...</div>}
+
+        {error && (
+          <div className="alert red">
+            <i className="ti ti-alert-circle" />
+            <div>{error}</div>
+          </div>
+        )}
+
+        {saran.length > 0 && (
+          <div className="edu-chips">
+            {saran.map((s) => (
+              <div key={s} className="edu-chip" onClick={() => kirimPertanyaan(s)}>
+                {s}
+              </div>
+            ))}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="edu-input">
+          <input
+            type="text"
+            value={pertanyaan}
+            onChange={(e) => setPertanyaan(e.target.value)}
+            placeholder="Tanya apa saja tentang pelajaranmu..."
+          />
+          <button type="submit" disabled={loading}>
+            Kirim
+          </button>
+        </form>
+
+        <div className="edu-disclaimer">EduNusa menjawab berdasarkan kurikulum Kemendikbud</div>
+      </div>
     </div>
   );
 }

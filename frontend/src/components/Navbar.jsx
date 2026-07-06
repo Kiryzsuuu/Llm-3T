@@ -1,9 +1,42 @@
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import StatusKoneksi from './StatusKoneksi';
 import { isLoggedIn, getRole, getUser, clearSession } from '../utils/auth';
 
+const MENU_BY_ROLE = {
+  murid: [
+    { to: '/murid/dashboard', label: 'Beranda' },
+    { to: '/murid/materi', label: 'Materi' },
+  ],
+  guru: [
+    { to: '/guru/dashboard', label: 'Dashboard' },
+    { to: '/guru/murid', label: 'Murid' },
+    { to: '/guru/materi', label: 'Materi' },
+    { to: '/guru/soal', label: 'Soal' },
+  ],
+  admin: [
+    { to: '/admin', label: 'Admin' },
+    { to: '/admin/users', label: 'Pengguna' },
+    { to: '/admin/edunusa', label: 'EduNusa' },
+    { to: '/admin/latih-ai', label: 'Latih AI' },
+  ],
+};
+
+const HOME_BY_ROLE = {
+  murid: '/murid/dashboard',
+  guru: '/guru/dashboard',
+  admin: '/admin',
+};
+
+function inisialNama(nama) {
+  if (!nama) return '?';
+  const kata = nama.trim().split(/\s+/);
+  const inisial = kata.length > 1 ? kata[0][0] + kata[1][0] : kata[0].slice(0, 2);
+  return inisial.toUpperCase();
+}
+
 export default function Navbar() {
   const navigate = useNavigate();
+  const location = useLocation();
   const loggedIn = isLoggedIn();
   const role = getRole();
   const user = getUser();
@@ -13,31 +46,57 @@ export default function Navbar() {
     navigate('/login');
   }
 
-  const homeLink = role === 'murid' ? '/murid/dashboard' : role === 'guru' ? '/guru/dashboard' : '/login';
+  const homeLink = HOME_BY_ROLE[role] || '/login';
+  const menu = MENU_BY_ROLE[role] || [];
+  const avatarStyle =
+    role === 'guru'
+      ? { background: 'var(--blue-bg)', color: 'var(--blue)' }
+      : role === 'admin'
+      ? { background: 'var(--purple-bg)', color: 'var(--purple)' }
+      : undefined;
+
+  if (!loggedIn) {
+    return (
+      <nav className="nav">
+        <div className="nav-in">
+          <Link to="/login" className="nav-logo">
+            <i className="ti ti-book" />
+            Belajar 3T
+          </Link>
+        </div>
+      </nav>
+    );
+  }
 
   return (
-    <nav className="sticky top-0 z-10 flex items-center justify-between border-b border-gray-200 bg-white px-4 py-3">
-      <Link to={homeLink} className="text-base font-bold text-brand-700">
-        Belajar 3T
-      </Link>
+    <nav className="nav">
+      <div className="nav-in">
+        <Link to={homeLink} className="nav-logo">
+          <i className="ti ti-book" />
+          Belajar 3T
+        </Link>
 
-      <div className="flex items-center gap-3">
-        <StatusKoneksi />
-        {loggedIn ? (
-          <>
-            <span className="hidden text-sm text-gray-600 sm:inline">{user?.nama || role}</span>
-            <button
-              onClick={handleLogout}
-              className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
-            >
-              Keluar
-            </button>
-          </>
-        ) : (
-          <Link to="/login" className="text-sm font-medium text-brand-600">
-            Masuk
+        <div className="nav-menu">
+          {menu.map((item) => (
+            <Link key={item.to} to={item.to} className={location.pathname === item.to ? 'active' : ''}>
+              {item.label}
+            </Link>
+          ))}
+        </div>
+
+        <div className="nav-right">
+          <StatusKoneksi />
+          <Link to="/ubah-password" title="Ubah Password" aria-label="Ubah Password">
+            <i className="ti ti-key" style={{ fontSize: 18, color: 'var(--text-2)' }} />
           </Link>
-        )}
+          <button className="btn ghost" style={{ padding: '6px 12px' }} onClick={handleLogout}>
+            <i className="ti ti-logout" />
+            Keluar
+          </button>
+          <div className="avatar" style={avatarStyle}>
+            {inisialNama(user?.nama)}
+          </div>
+        </div>
       </div>
     </nav>
   );
