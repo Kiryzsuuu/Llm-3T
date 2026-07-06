@@ -129,6 +129,11 @@ async function addDocument({ id, text, metadata }) {
   saveStore(items);
 }
 
+function hapusDocumentByMateriId(materiId) {
+  const items = loadStore().filter((item) => item.metadata?.materi_id !== String(materiId));
+  saveStore(items);
+}
+
 async function queryDocuments(text, nResults = 4, where) {
   const embedding = await generateEmbedding(text);
   let items = loadStore();
@@ -167,7 +172,9 @@ function getCollectionStats() {
 module.exports = {
   chunkText,
   prosesFile,
+  extractTextFromFile,
   getCollectionStats,
   addDocument,
+  hapusDocumentByMateriId,
   queryDocuments,
 };

@@ -22,6 +22,7 @@ yarn-error.log*
 # Uploads / runtime data
 backend/uploads/*
 !backend/uploads/.gitkeep
+ai-service/vector-store.json
 
 # OS / editor
 .DS_Store

@@ -4,9 +4,11 @@ const path = require('path');
 const Materi = require('../models/Materi');
 const { auth, requireRole } = require('../middleware/auth');
 const { ok, ApiError } = require('../utils/response');
-const { chunkText, prosesFile, addDocument } = require('../../ai-service/embeddings');
+const { chunkText, addDocument, extractTextFromFile, hapusDocumentByMateriId } = require('../../ai-service/embeddings');
 
 const router = express.Router();
+
+const EKSTENSI_DIDUKUNG = ['.pdf', '.txt', '.docx'];
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, path.join(__dirname, '..', 'uploads')),
@@ -14,7 +16,22 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 
-async function ingestMateri(materi, filePath) {
+async function ambilKontenDariFile(file) {
+  const ext = path.extname(file.originalname).toLowerCase();
+  if (!EKSTENSI_DIDUKUNG.includes(ext)) {
+    throw new ApiError(`Format file tidak didukung: ${ext}. Gunakan PDF, TXT, atau DOCX.`, 400);
+  }
+
+  try {
+    return await extractTextFromFile(file.path);
+  } catch (err) {
+    throw new ApiError(`Gagal membaca isi file: ${err.message}`, 400);
+  }
+}
+
+async function ingestMateri(materi) {
+  if (!materi.konten) return;
+
   const metadata = {
     materi_id: String(materi._id),
     mapel: materi.mapel,
@@ -24,13 +41,9 @@ async function ingestMateri(materi, filePath) {
   };
 
   try {
-    if (filePath) {
-      await prosesFile(filePath, metadata);
-    } else if (materi.konten) {
-      const chunks = chunkText(materi.konten, 500);
-      for (let i = 0; i < chunks.length; i++) {
-        await addDocument({ id: `${metadata.materi_id}-${i}`, text: chunks[i], metadata: { ...metadata, chunk_index: i } });
-      }
+    const chunks = chunkText(materi.konten, 500);
+    for (let i = 0; i < chunks.length; i++) {
+      await addDocument({ id: `${metadata.materi_id}-${i}`, text: chunks[i], metadata: { ...metadata, chunk_index: i } });
     }
   } catch (err) {
     // Ingest RAG bersifat best-effort: materi tetap tersimpan di DB meski Ollama sedang offline.
@@ -66,9 +79,19 @@ router.get('/:id', async (req, res, next) => {
 
 router.post('/', auth, requireRole('guru', 'admin'), upload.single('file'), async (req, res, next) => {
   try {
-    const { judul, mapel, jenjang, kelas, bab, konten } = req.body;
-    if (!judul || !mapel || !jenjang || !kelas || !konten) {
-      throw new ApiError('judul, mapel, jenjang, kelas, dan konten wajib diisi', 400);
+    const { judul, mapel, jenjang, kelas, bab } = req.body;
+    let { konten } = req.body;
+
+    if (!judul || !mapel || !jenjang || !kelas) {
+      throw new ApiError('judul, mapel, jenjang, dan kelas wajib diisi', 400);
+    }
+
+    if (req.file && !konten) {
+      konten = await ambilKontenDariFile(req.file);
+    }
+
+    if (!konten || !konten.trim()) {
+      throw new ApiError('Konten materi wajib diisi (tulis manual atau upload file PDF/TXT/DOCX)', 400);
     }
 
     const materi = await Materi.create({
@@ -82,7 +105,7 @@ router.post('/', auth, requireRole('guru', 'admin'), upload.single('file'), asyn
       dibuat_oleh: req.user.id,
     });
 
-    await ingestMateri(materi, req.file ? req.file.path : null);
+    await ingestMateri(materi);
 
     return ok(res, materi, 'Materi berhasil dibuat', 201);
   } catch (err) {
@@ -90,13 +113,20 @@ router.post('/', auth, requireRole('guru', 'admin'), upload.single('file'), asyn
   }
 });
 
-router.put('/:id', auth, requireRole('guru', 'admin'), async (req, res, next) => {
+router.put('/:id', auth, requireRole('guru', 'admin'), upload.single('file'), async (req, res, next) => {
   try {
-    const materi = await Materi.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true });
+    const update = { ...req.body };
+
+    if (req.file) {
+      update.konten = update.konten && update.konten.trim() ? update.konten : await ambilKontenDariFile(req.file);
+      update.file_url = `/uploads/${req.file.filename}`;
+    }
+
+    const materi = await Materi.findByIdAndUpdate(req.params.id, update, { new: true, runValidators: true });
     if (!materi) throw new ApiError('Materi tidak ditemukan', 404);
 
-    if (req.body.konten) {
-      await ingestMateri(materi, null);
+    if (update.konten) {
+      await ingestMateri(materi);
     }
 
     return ok(res, materi, 'Materi berhasil diperbarui');
@@ -109,6 +139,13 @@ router.delete('/:id', auth, requireRole('guru', 'admin'), async (req, res, next)
   try {
     const materi = await Materi.findByIdAndDelete(req.params.id);
     if (!materi) throw new ApiError('Materi tidak ditemukan', 404);
+
+    try {
+      hapusDocumentByMateriId(materi._id);
+    } catch (err) {
+      console.error('Gagal membersihkan vector store untuk materi terhapus:', err.message);
+    }
+
     return ok(res, null, 'Materi berhasil dihapus');
   } catch (err) {
     next(err);

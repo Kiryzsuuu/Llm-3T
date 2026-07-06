@@ -13,6 +13,7 @@ export default function GuruMateri() {
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const [hapusTarget, setHapusTarget] = useState(null);
+  const [file, setFile] = useState(null);
 
   async function load() {
     setLoading(true);
@@ -31,6 +32,7 @@ export default function GuruMateri() {
 
   function handleTambahBaru() {
     setForm({ ...FORM_KOSONG, mapel: mapelList[0]?.nama || '' });
+    setFile(null);
     setEditId(null);
     setShowForm(true);
     setError('');
@@ -38,6 +40,7 @@ export default function GuruMateri() {
 
   function handleEdit(m) {
     setForm({ judul: m.judul, mapel: m.mapel, jenjang: m.jenjang, kelas: m.kelas, bab: m.bab || '', konten: m.konten });
+    setFile(null);
     setEditId(m._id);
     setShowForm(true);
     setError('');
@@ -52,12 +55,25 @@ export default function GuruMateri() {
   async function handleSubmit(e) {
     e.preventDefault();
     setError('');
+
+    if (!file && !form.konten.trim()) {
+      setError('Isi konten materi secara manual, atau upload file PDF/TXT/DOCX.');
+      return;
+    }
+
     setSaving(true);
     try {
+      let payload = form;
+      if (file) {
+        payload = new FormData();
+        Object.entries(form).forEach(([key, value]) => payload.append(key, value));
+        payload.append('file', file);
+      }
+
       if (editId) {
-        await api.put(`/materi/${editId}`, form);
+        await api.put(`/materi/${editId}`, payload);
       } else {
-        await api.post('/materi', form);
+        await api.post('/materi', payload);
       }
       setShowForm(false);
       load();
@@ -133,13 +149,30 @@ export default function GuruMateri() {
           </div>
 
           <div className="field">
-            <label>Konten materi</label>
+            <label>Upload file materi (PDF, TXT, atau DOCX)</label>
+            <input
+              type="file"
+              accept=".pdf,.txt,.docx"
+              onChange={(e) => setFile(e.target.files?.[0] || null)}
+            />
+            {file && (
+              <div className="text-muted mt-2" style={{ fontSize: 12 }}>
+                <i className="ti ti-file-check" /> {file.name} — konten akan diambil otomatis dari file ini.
+              </div>
+            )}
+          </div>
+
+          <div className="field">
+            <label>{file ? 'Konten materi (opsional, akan ditimpa isi file jika dikosongkan)' : 'Konten materi'}</label>
             <textarea
               rows={8}
-              placeholder="Tulis atau tempel isi materi di sini..."
+              placeholder={
+                file
+                  ? 'Kosongkan supaya konten diambil otomatis dari file yang di-upload...'
+                  : 'Tulis atau tempel isi materi di sini, atau upload file di atas...'
+              }
               value={form.konten}
               onChange={(e) => setForm({ ...form, konten: e.target.value })}
-              required
             />
           </div>
 
