@@ -91,6 +91,32 @@ router.get('/me', auth, async (req, res, next) => {
   }
 });
 
+router.put('/profile', auth, async (req, res, next) => {
+  try {
+    const { nama, email, sekolah, kelas } = req.body;
+    if (!nama || !email) {
+      throw new ApiError('Nama dan email wajib diisi', 400);
+    }
+
+    const emailBaru = String(email).toLowerCase();
+    const existing = await User.findOne({ email: emailBaru, _id: { $ne: req.user.id } });
+    if (existing) {
+      throw new ApiError('Email sudah dipakai akun lain', 409);
+    }
+
+    const user = await User.findByIdAndUpdate(
+      req.user.id,
+      { nama, email: emailBaru, sekolah, kelas },
+      { new: true, runValidators: true }
+    );
+    if (!user) throw new ApiError('User tidak ditemukan', 404);
+
+    return ok(res, toPublicUser(user), 'Profil berhasil diperbarui');
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.put('/password', auth, async (req, res, next) => {
   try {
     const { passwordLama, passwordBaru } = req.body;

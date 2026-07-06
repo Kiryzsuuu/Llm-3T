@@ -2,7 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import ProtectedRoute from './components/ProtectedRoute';
 import Login from './pages/Login';
-import UbahPassword from './pages/UbahPassword';
+import Profil from './pages/Profil';
 
 import MuridDashboard from './pages/Murid/Dashboard';
 import MuridMateri from './pages/Murid/Materi';
@@ -28,10 +28,10 @@ export default function App() {
         <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="/login" element={<Login />} />
         <Route
-          path="/ubah-password"
+          path="/profil"
           element={
             <ProtectedRoute>
-              <UbahPassword />
+              <Profil />
             </ProtectedRoute>
           }
         />

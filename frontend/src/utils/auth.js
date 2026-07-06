@@ -16,6 +16,11 @@ export function getUser() {
   return raw ? JSON.parse(raw) : null;
 }
 
+export function updateUser(user) {
+  localStorage.setItem(USER_KEY, JSON.stringify(user));
+  localStorage.setItem('role', user.role);
+}
+
 export function getRole() {
   return localStorage.getItem('role');
 }

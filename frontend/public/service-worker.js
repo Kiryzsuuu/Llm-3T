@@ -1,4 +1,4 @@
-const CACHE_NAME = 'belajar-3t-cache-v2';
+const CACHE_NAME = 'belajar-3t-cache-v3';
 const APP_SHELL = [
   '/',
   '/index.html',

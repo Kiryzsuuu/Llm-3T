@@ -86,16 +86,15 @@ export default function Navbar() {
 
         <div className="nav-right">
           <StatusKoneksi />
-          <Link to="/ubah-password" title="Ubah Password" aria-label="Ubah Password">
-            <i className="ti ti-key" style={{ fontSize: 18, color: 'var(--text-2)' }} />
-          </Link>
           <button className="btn ghost" style={{ padding: '6px 12px' }} onClick={handleLogout}>
             <i className="ti ti-logout" />
             Keluar
           </button>
-          <div className="avatar" style={avatarStyle}>
-            {inisialNama(user?.nama)}
-          </div>
+          <Link to="/profil" title="Profil Saya" aria-label="Profil Saya">
+            <div className="avatar" style={avatarStyle}>
+              {inisialNama(user?.nama)}
+            </div>
+          </Link>
         </div>
       </div>
     </nav>
