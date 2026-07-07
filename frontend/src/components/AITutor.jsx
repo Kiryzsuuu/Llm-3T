@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import ReactMarkdown from 'react-markdown';
 import api from '../utils/api';
 
 const PESAN_PEMBUKA = 'Halo! Aku EduNusa. Ada yang ingin kamu tanyakan tentang pelajaranmu?';
@@ -94,7 +95,9 @@ export default function AITutor({ materiId, jenjang, tagPembuka, saran = [] }) {
           <div key={i}>
             <div className="bubble user">{item.pertanyaan}</div>
             <div className="bubble bot">
-              {item.jawaban}
+              <div className="bubble-markdown">
+                <ReactMarkdown>{item.jawaban}</ReactMarkdown>
+              </div>
               {item.tahap === 'menunggu_jawaban_siswa' && (
                 <div className="src-pill">
                   <i className="ti ti-message-question" />
