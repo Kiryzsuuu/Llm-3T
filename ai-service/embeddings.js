@@ -26,16 +26,48 @@ function cosineSimilarity(a, b) {
   return dot / (Math.sqrt(normA) * Math.sqrt(normB));
 }
 
+// Baris yang mengawali poin/butir terpisah (mis. "1. ...", "Sila ke-2", "Pasal 3", "- ...", "a) ...")
+// WAJIB dipisah jadi paragraf sendiri, meski tidak ada baris kosong di antaranya di teks sumber.
+// Tanpa ini, daftar seperti "5 sila Pancasila" bisa tergabung jadi satu chunk besar, sehingga saat
+// ditanya "sila ke-2" model bisa salah ambil/menjawab sila lain dari chunk campuran yang sama.
+const POLA_AWAL_POIN = /^(\d+[.)]\s|[a-z][.)]\s|[-•*]\s|sila\s+ke[- ]?\d|pasal\s+\d|bab\s+[ivxlcdm\d]+\b)/i;
+
+function pisahkanPoinList(teks) {
+  const baris = teks.split('\n');
+  const hasil = [];
+  let current = [];
+
+  for (const b of baris) {
+    if (POLA_AWAL_POIN.test(b.trim()) && current.length > 0) {
+      hasil.push(current.join('\n'));
+      current = [b];
+    } else {
+      current.push(b);
+    }
+  }
+  if (current.length > 0) hasil.push(current.join('\n'));
+
+  return hasil.join('\n\n');
+}
+
 function chunkText(text, chunkSize = 500) {
-  const bersih = text.replace(/\r\n/g, '\n').replace(/[ \t]+/g, ' ').trim();
+  const bersih = pisahkanPoinList(text.replace(/\r\n/g, '\n').replace(/[ \t]+/g, ' ').trim());
   const paragraf = bersih.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
 
   const chunks = [];
   let current = '';
+  let currentAdalahPoin = false;
 
   for (const p of paragraf) {
-    if ((current + '\n\n' + p).length <= chunkSize) {
+    const pAdalahPoin = POLA_AWAL_POIN.test(p);
+
+    // Dua poin/butir berbeda (mis. sila 1 dan sila 2) TIDAK BOLEH digabung dalam satu chunk,
+    // meski ukurannya kecil — supaya retrieval tidak mengambil chunk campuran beberapa poin sekaligus.
+    const bolehGabung = !(currentAdalahPoin && pAdalahPoin) && (current + '\n\n' + p).length <= chunkSize;
+
+    if (bolehGabung) {
       current = current ? `${current}\n\n${p}` : p;
+      currentAdalahPoin = currentAdalahPoin || pAdalahPoin;
       continue;
     }
 
@@ -46,6 +78,7 @@ function chunkText(text, chunkSize = 500) {
 
     if (p.length <= chunkSize) {
       current = p;
+      currentAdalahPoin = pAdalahPoin;
     } else {
       // paragraf sendiri lebih panjang dari chunkSize, potong per kata
       const kata = p.split(' ');
@@ -59,6 +92,7 @@ function chunkText(text, chunkSize = 500) {
         }
       }
       if (potongan) current = potongan.trim();
+      currentAdalahPoin = pAdalahPoin;
     }
   }
 
@@ -100,7 +134,7 @@ async function prosesFile(filePath, metadata = {}) {
 
   for (let i = 0; i < chunks.length; i++) {
     const chunk = chunks[i];
-    const embedding = await generateEmbedding(chunk);
+    const embedding = await generateEmbedding(chunk, 'document');
     const id = `${metadata.materi_id || path.basename(filePath)}-${i}`;
 
     const item = {
@@ -123,7 +157,7 @@ async function prosesFile(filePath, metadata = {}) {
 }
 
 async function addDocument({ id, text, metadata }) {
-  const embedding = await generateEmbedding(text);
+  const embedding = await generateEmbedding(text, 'document');
   const items = loadStore().filter((item) => item.id !== String(id));
   items.push({ id: String(id), text, embedding, metadata: metadata || {} });
   saveStore(items);
@@ -135,7 +169,7 @@ function hapusDocumentByMateriId(materiId) {
 }
 
 async function queryDocuments(text, nResults = 4, where) {
-  const embedding = await generateEmbedding(text);
+  const embedding = await generateEmbedding(text, 'query');
   let items = loadStore();
 
   if (where) {

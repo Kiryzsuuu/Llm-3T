@@ -2,13 +2,22 @@ const path = require('path');
 const fs = require('fs');
 const express = require('express');
 const { auth, requireRole } = require('../middleware/auth');
-const { tanyaAI, generateSoal, PESAN_TIDAK_TAHU } = require('../../ai-service/rag');
+const {
+  PESAN_TIDAK_TAHU,
+  AMBANG_RELEVAN,
+  cekSmallTalk,
+  retrieveContext,
+  chatPertanyaanBaru,
+  chatEvaluasiJawaban,
+  generateSoal,
+} = require('../../ai-service/rag');
 const { getEduNusaStatus } = require('../../ai-service/ollama');
 const { getCollectionStats } = require('../../ai-service/embeddings');
 const { jalankan: generateDataset } = require('../../edunusa-model/training-data/prepare-dataset');
 const { ok, ApiError } = require('../utils/response');
 const { toCsv } = require('../utils/csv');
 const AiLog = require('../models/AiLog');
+const AiSesi = require('../models/AiSesi');
 const Materi = require('../models/Materi');
 
 const router = express.Router();
@@ -35,15 +44,80 @@ async function catatAiLog({ muridId, pertanyaan, jawaban, materiId, responseTime
   }
 }
 
+// Alur Socratic (lihat EDUNUSA_CATATAN_PERBAIKAN.md bagian 4.1, 4.2, 5, 6):
+// tanya -> EduNusa beri konteks + tanya balik (tanpa bocor jawaban) -> siswa coba jawab
+// -> EduNusa evaluasi jawaban siswa. Tahap disimpan eksplisit di MongoDB (AiSesi),
+// TIDAK mengandalkan LLM menebak sendiri sedang di tahap mana.
 router.post('/tanya', auth, async (req, res, next) => {
   try {
-    const { pertanyaan, materi_id, jenjang } = req.body;
+    const { pertanyaan, materi_id, jenjang, sesi_id } = req.body;
     if (!pertanyaan) {
       throw new ApiError('Pertanyaan wajib diisi', 400);
     }
 
     const mulai = Date.now();
-    const hasil = await tanyaAI(pertanyaan, { materi_id, jenjang });
+    let hasil;
+
+    // Tahap 2: ada sesi aktif menunggu jawaban siswa -> pesan ini adalah percobaan jawaban siswa,
+    // BUKAN pertanyaan baru. Jangan lakukan retrieval/small-talk lagi, langsung evaluasi.
+    const sesiAktif = sesi_id
+      ? await AiSesi.findOne({ _id: sesi_id, murid_id: req.user.id, tahap: 'menunggu_jawaban_siswa' })
+      : null;
+
+    if (sesiAktif) {
+      const jawaban = await chatEvaluasiJawaban({
+        pertanyaanAsli: sesiAktif.pertanyaan_asli,
+        konteks: sesiAktif.konteks,
+        jawabanSiswa: pertanyaan,
+        jenjang: sesiAktif.jenjang,
+      });
+
+      sesiAktif.tahap = 'selesai';
+      await sesiAktif.save();
+
+      hasil = {
+        jawaban,
+        sumber: [],
+        confidence: sesiAktif.confidence,
+        tahap: 'selesai',
+        sesi_id: sesiAktif._id,
+      };
+    } else {
+      // Tahap 1: pertanyaan baru. Cek small-talk dulu, baru retrieval RAG.
+      const jawabanSmallTalk = cekSmallTalk(pertanyaan);
+
+      if (jawabanSmallTalk) {
+        hasil = { jawaban: jawabanSmallTalk, sumber: [], smallTalk: true, tahap: null, sesi_id: null };
+      } else {
+        const { dokumen, metadatas, confidence, konteks } = await retrieveContext(pertanyaan, { materi_id });
+
+        if (dokumen.length === 0 || confidence < AMBANG_RELEVAN) {
+          // Uji batasan (DoD #3): materi tak ada -> jujur bilang belum tersedia, jangan mengarang.
+          hasil = { jawaban: PESAN_TIDAK_TAHU, sumber: [], confidence, tahap: null, sesi_id: null };
+        } else {
+          const jawaban = await chatPertanyaanBaru({ pertanyaan, konteks, jenjang });
+
+          const sesiBaru = await AiSesi.create({
+            murid_id: req.user.id,
+            materi_id: materi_id || undefined,
+            pertanyaan_asli: pertanyaan,
+            konteks,
+            jenjang,
+            confidence,
+            tahap: 'menunggu_jawaban_siswa',
+          });
+
+          hasil = {
+            jawaban,
+            sumber: dokumen.map((text, i) => ({ text, metadata: metadatas[i] || {} })),
+            confidence,
+            tahap: 'menunggu_jawaban_siswa',
+            sesi_id: sesiBaru._id,
+          };
+        }
+      }
+    }
+
     const responseTime = Date.now() - mulai;
 
     catatAiLog({

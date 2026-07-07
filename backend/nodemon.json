@@ -1,0 +1,5 @@
+{
+  "watch": ["./", "../ai-service"],
+  "ext": "js,json",
+  "ignore": ["../ai-service/vector-store.json"]
+}

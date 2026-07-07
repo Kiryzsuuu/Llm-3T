@@ -9,6 +9,7 @@ export default function AITutor({ materiId, jenjang, tagPembuka, saran = [] }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [statusOnline, setStatusOnline] = useState(null);
+  const [sesiAktif, setSesiAktif] = useState(null); // { id, tahap: 'menunggu_jawaban_siswa' } | null
 
   useEffect(() => {
     let batal = false;
@@ -37,13 +38,23 @@ export default function AITutor({ materiId, jenjang, tagPembuka, saran = [] }) {
     setError('');
     setPertanyaan('');
 
+    const sedangMenjawab = sesiAktif?.tahap === 'menunggu_jawaban_siswa';
+
     try {
       const { data } = await api.post('/ai/tanya', {
         pertanyaan: teks,
         materi_id: materiId,
         jenjang,
+        sesi_id: sedangMenjawab ? sesiAktif.id : undefined,
       });
-      setRiwayat((prev) => [...prev, { pertanyaan: teks, ...data }]);
+
+      setRiwayat((prev) => [...prev, { pertanyaan: teks, ...data, isJawabanSiswa: sedangMenjawab }]);
+
+      if (data.tahap === 'menunggu_jawaban_siswa' && data.sesi_id) {
+        setSesiAktif({ id: data.sesi_id, tahap: 'menunggu_jawaban_siswa' });
+      } else {
+        setSesiAktif(null);
+      }
     } catch (err) {
       setError(err.response?.data?.message || 'EduNusa sedang tidak tersedia. Coba lagi nanti.');
     } finally {
@@ -55,6 +66,8 @@ export default function AITutor({ materiId, jenjang, tagPembuka, saran = [] }) {
     e.preventDefault();
     kirimPertanyaan(pertanyaan);
   }
+
+  const sedangMenungguJawaban = sesiAktif?.tahap === 'menunggu_jawaban_siswa';
 
   return (
     <div className="edunusa">
@@ -82,7 +95,13 @@ export default function AITutor({ materiId, jenjang, tagPembuka, saran = [] }) {
             <div className="bubble user">{item.pertanyaan}</div>
             <div className="bubble bot">
               {item.jawaban}
-              {typeof item.confidence === 'number' && (
+              {item.tahap === 'menunggu_jawaban_siswa' && (
+                <div className="src-pill">
+                  <i className="ti ti-message-question" />
+                  Coba jawab dulu ya, sebelum aku kasih tahu jawaban lengkapnya!
+                </div>
+              )}
+              {typeof item.confidence === 'number' && item.confidence > 0 && (
                 <div className="src-pill">
                   <i className="ti ti-gauge" />
                   Keyakinan jawaban: {Math.round(item.confidence * 100)}%
@@ -101,7 +120,14 @@ export default function AITutor({ materiId, jenjang, tagPembuka, saran = [] }) {
           </div>
         )}
 
-        {saran.length > 0 && (
+        {sedangMenungguJawaban && !loading && (
+          <div className="alert blue">
+            <i className="ti ti-bulb" />
+            <div>EduNusa sedang menunggu jawabanmu di kotak di bawah ini.</div>
+          </div>
+        )}
+
+        {saran.length > 0 && !sedangMenungguJawaban && (
           <div className="edu-chips">
             {saran.map((s) => (
               <div key={s} className="edu-chip" onClick={() => kirimPertanyaan(s)}>
@@ -116,7 +142,7 @@ export default function AITutor({ materiId, jenjang, tagPembuka, saran = [] }) {
             type="text"
             value={pertanyaan}
             onChange={(e) => setPertanyaan(e.target.value)}
-            placeholder="Tanya apa saja tentang pelajaranmu..."
+            placeholder={sedangMenungguJawaban ? 'Tulis jawabanmu di sini...' : 'Tanya apa saja tentang pelajaranmu...'}
           />
           <button type="submit" disabled={loading}>
             Kirim

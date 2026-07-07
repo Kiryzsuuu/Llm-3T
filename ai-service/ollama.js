@@ -5,9 +5,14 @@ const ollama = new Ollama({ host: process.env.OLLAMA_HOST || 'http://localhost:1
 const CHAT_MODEL = process.env.EDUNUSA_MODEL || 'edunusa';
 const EMBED_MODEL = process.env.OLLAMA_EMBED_MODEL || 'nomic-embed-text';
 
-async function generateEmbedding(text) {
-  const response = await ollama.embeddings({ model: EMBED_MODEL, prompt: text });
-  return response.embedding;
+// nomic-embed-text WAJIB diberi prefix instruksi ("search_query: " vs "search_document: ")
+// supaya embedding-nya benar-benar diskriminatif. Tanpa prefix ini, similarity antara pertanyaan
+// yang relevan dan yang sama sekali tidak relevan bisa hampir sama besar (bahkan terbalik) —
+// ini yang menyebabkan retrieval mengambil chunk yang salah / pertanyaan di luar topik lolos
+// ambang batas (Bug 3.1 & 3.2 di EDUNUSA_CATATAN_PERBAIKAN.md).
+function generateEmbedding(text, tipe = 'document') {
+  const prefix = tipe === 'query' ? 'search_query: ' : 'search_document: ';
+  return ollama.embeddings({ model: EMBED_MODEL, prompt: `${prefix}${text}` }).then((r) => r.embedding);
 }
 
 async function chat(prompt, options = {}) {
