@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@tabler/icons-webfont": "^3.0.0",
     "axios": "^1.7.2",
     "idb": "^8.0.0",
     "react": "^18.3.1",

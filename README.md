@@ -53,7 +53,12 @@ Catatan penting: `ai-service` **bukan** proses yang berjalan sendiri — ia di-`
 ## Prasyarat (tanpa Docker)
 
 1. **Node.js 18+**
-2. **MongoDB Atlas** — buat cluster gratis di [mongodb.com/atlas](https://mongodb.com/atlas), ambil connection string-nya, dan pastikan IP Access List mengizinkan koneksi kamu (atau `0.0.0.0/0` untuk pengembangan).
+2. **MongoDB** — dua opsi:
+   - **Portable, dalam folder proyek (default, direkomendasikan)** — tidak butuh instalasi/hak admin, dan seluruh data (akun, materi, progres siswa) tetap berada di dalam folder proyek ini, gampang di-backup atau dipindah ke PC lain (mis. PC yang dibawa pameran):
+     1. Unduh ZIP "Windows x64" dari [mongodb.com/try/download/community](https://www.mongodb.com/try/download/community) (pilih package **zip**, bukan msi).
+     2. Ekstrak isinya ke `mongodb-portable/` di root proyek, sehingga `mongodb-portable/bin/mongod.exe` ada.
+     3. Selesai — `npm run dev` / `npm run deploy` otomatis menjalankan `mongod` ini dengan data disimpan di `data/mongodb/` (dibuat otomatis, ter-gitignore). Tidak perlu setup service Windows apa pun.
+   - **Atlas (cloud, opsional)** — untuk dev di komputer yang online tanpa mau download MongoDB, buat cluster gratis di [mongodb.com/atlas](https://mongodb.com/atlas) dan ganti `MONGO_URI` di `.env` (lihat komentar di `backend/.env.example`), lalu jangan pakai `npm run db`/jalankan `backend` & `frontend` terpisah saja.
 3. **Ollama** — install dari [ollama.com](https://ollama.com), lalu siapkan model:
 
    ```bash
@@ -77,10 +82,10 @@ cd belajar-3t
 cp backend/.env.example backend/.env
 ```
 
-Buka `backend/.env` dan isi minimal:
+Buka `backend/.env` dan isi minimal (default `MONGO_URI` sudah mengarah ke MongoDB portable lokal, tidak perlu diubah kecuali pakai Atlas):
 
 ```env
-MONGO_URI=mongodb+srv://<user>:<password>@<cluster>.mongodb.net/belajar-3t
+MONGO_URI=mongodb://localhost:27017/edunusa
 JWT_SECRET=ganti_dengan_string_acak_yang_panjang
 ```
 
@@ -100,11 +105,12 @@ npm install
 npm run dev
 ```
 
-Menjalankan backend (`http://localhost:5000`) dan frontend (`http://localhost:5173`, proxy `/api` ke backend) bersamaan di satu terminal.
+Menjalankan MongoDB portable, backend (`http://localhost:5000`), dan frontend (`http://localhost:5173`, proxy `/api` ke backend) bersamaan di satu terminal.
 
 ### Terpisah (opsional, untuk debugging)
 
 ```bash
+npm run db          # MongoDB portable (lewati kalau pakai Atlas)
 npm run dev -w backend
 npm run dev -w frontend
 ```
@@ -117,6 +123,45 @@ npm run start -w backend    # menjalankan backend tanpa nodemon (mode produksi)
 ```
 
 Setelah backend & frontend jalan, buka **http://localhost:5173** di browser.
+
+---
+
+## Deployment untuk Sekolah 3T (Tanpa Internet)
+
+Setup di atas (`npm run dev`) cocok untuk pengembangan di satu laptop. Untuk dipakai sungguhan
+di sekolah — satu komputer server, diakses banyak siswa dari device masing-masing lewat
+Wi-Fi/LAN lokal, **tanpa internet sama sekali** — pakai alur berikut:
+
+1. **Setup awal (sekali saja, boleh dengan internet)** di komputer yang akan jadi server:
+   - Install Node.js dan Ollama.
+   - Unduh & ekstrak MongoDB portable ke `mongodb-portable/` (lihat bagian [Prasyarat](#prasyarat-tanpa-docker) poin 2) — tidak perlu hak admin.
+   - `ollama pull nomic-embed-text`, lalu `cd edunusa-model && ./setup-edunusa.sh` untuk membangun model `edunusa`.
+   - `npm install` di root proyek, isi `backend/.env` (default `MONGO_URI` sudah mengarah ke MongoDB portable, tidak perlu diubah).
+   - Kosongkan `CORS_ORIGIN` di `.env` (atau isi `*`) — dibutuhkan supaya device siswa lewat IP LAN bisa akses API.
+
+2. **Jalankan server** (setelah setup awal, langkah ini tidak butuh internet lagi):
+   ```bash
+   npm run deploy
+   ```
+   Perintah ini nge-build frontend (`frontend/dist`) lalu menjalankan backend dalam mode produksi.
+   Backend otomatis ikut menyajikan file frontend yang sudah di-build, jadi **hanya ada satu
+   proses & satu port** (`5000` secara default) — tidak perlu menjalankan Vite dev server terpisah.
+
+3. **Cari IP LAN server** (mis. `192.168.1.10`) — di Windows: `ipconfig`, di Linux: `ip addr` atau `hostname -I`.
+
+4. **Di device siswa** (laptop/HP yang tersambung ke Wi-Fi/LAN sekolah yang sama), buka browser ke:
+   ```
+   http://<IP-LAN-server>:5000
+   ```
+   Semua fitur (login, materi, latihan, EduNusa AI Tutor, offline PWA per-device) berjalan lewat
+   jaringan lokal sekolah, tanpa koneksi ke internet luar sama sekali.
+
+> Catatan: matikan firewall Windows untuk port 5000 (atau buat exception), agar device lain di
+> jaringan yang sama bisa mengaksesnya.
+
+**Skenario 1 PC saja (mis. dibawa pameran, tanpa device siswa lain):** lewati langkah 3-4, cukup
+buka `http://localhost:5000` di PC yang sama. Semua data (MongoDB portable di `data/mongodb/`,
+model Ollama, materi) ada di PC itu — tinggal bawa PC-nya, tidak perlu setup ulang di tempat.
 
 ---
 

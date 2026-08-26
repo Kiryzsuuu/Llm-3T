@@ -42,3 +42,8 @@ edunusa-model/kurikulum/*
 !edunusa-model/kurikulum/.gitkeep
 !edunusa-model/kurikulum/README.md
 edunusa-model/training-data/dataset-final.jsonl
+
+# MongoDB portable (binary ~500MB, diunduh manual per PC — lihat README) + data aplikasi
+# (akun, materi, progres siswa — spesifik per PC, jangan pernah commit ke git)
+/mongodb-portable/
+/data/

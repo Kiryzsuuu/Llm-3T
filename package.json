@@ -9,8 +9,10 @@
     "ai-service"
   ],
   "scripts": {
-    "dev": "concurrently -n backend,frontend -c blue,green \"npm run dev -w backend\" \"npm run dev -w frontend\"",
-    "install:all": "npm install"
+    "db": "node scripts/start-mongodb.js",
+    "dev": "concurrently -n db,backend,frontend -c yellow,blue,green \"npm run db\" \"npm run dev -w backend\" \"npm run dev -w frontend\"",
+    "install:all": "npm install",
+    "deploy": "npm run build -w frontend && concurrently -n db,backend -c yellow,blue \"npm run db\" \"npm run start -w backend\""
   },
   "devDependencies": {
     "concurrently": "^8.2.2"

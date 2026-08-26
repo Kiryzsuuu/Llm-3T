@@ -1,5 +1,7 @@
 require('dotenv').config();
 const dns = require('dns');
+const fs = require('fs');
+const path = require('path');
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
@@ -39,6 +41,18 @@ app.use('/api/soal', soalRoutes);
 app.use('/api/progress', progressRoutes);
 app.use('/api/ai', aiRoutes);
 
+// Deployment sekolah 3T: satu proses backend melayani API sekaligus build frontend (frontend/dist),
+// jadi cukup 1 server & 1 port yang diakses semua device siswa lewat IP LAN — tanpa proses frontend
+// terpisah dan tanpa CORS lintas origin. Aktif otomatis kalau frontend sudah di-build; kalau belum
+// (mis. saat dev, pakai `npm run dev` yang menjalankan Vite dev server terpisah), bagian ini dilewati.
+const frontendDist = path.join(__dirname, '../frontend/dist');
+if (fs.existsSync(frontendDist)) {
+  app.use(express.static(frontendDist));
+  app.get(/^(?!\/api).*/, (req, res) => {
+    res.sendFile(path.join(frontendDist, 'index.html'));
+  });
+}
+
 app.use((req, res) => {
   res.status(404).json({ success: false, data: null, message: 'Endpoint tidak ditemukan' });
 });
@@ -49,10 +63,25 @@ app.use((err, req, res, next) => {
 });
 
 const PORT = process.env.PORT || 5000;
-const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/belajar-3t';
+const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/edunusa';
 
-mongoose
-  .connect(MONGO_URI)
+// Retry connect: saat `npm run dev`/`npm run deploy` menjalankan mongod portable (scripts/start-mongodb.js)
+// bersamaan dengan backend, mongod butuh beberapa detik untuk siap menerima koneksi — tanpa retry,
+// backend akan langsung exit karena mencoba connect sebelum mongod selesai start.
+async function connectWithRetry(uri, retries = 10, delayMs = 1500) {
+  for (let i = 1; i <= retries; i++) {
+    try {
+      await mongoose.connect(uri);
+      return;
+    } catch (err) {
+      if (i === retries) throw err;
+      console.log(`MongoDB belum siap, mencoba lagi (${i}/${retries})...`);
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
+  }
+}
+
+connectWithRetry(MONGO_URI)
   .then(() => {
     console.log('MongoDB connected');
     app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
