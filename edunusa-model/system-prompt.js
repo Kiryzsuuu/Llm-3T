@@ -8,10 +8,11 @@
 // Jadi kalau mau mengubah cara EduNusa menjelaskan materi atau menerapkan alur Socratic-nya,
 // edit fungsi buildSystemPrompt() di file ini — jangan edit Modelfile untuk keperluan itu.
 
+// EduNusa fokus khusus untuk siswa SD (Sekolah Dasar) - lihat keputusan produk terbaru.
+// Field jenjang di database (Materi/Soal) tetap fleksibel menerima SMP/SMA untuk kebutuhan masa
+// depan, tapi bahasa AI-nya sendiri selalu memakai gaya SD apa pun nilai jenjang yang dikirim.
 const LEVEL_INSTRUKSI = {
   SD: 'Jelaskan dengan kata-kata yang sangat sederhana, contoh konkret, dan kalimat pendek, seperti untuk anak Sekolah Dasar.',
-  SMP: 'Jelaskan dengan bahasa sederhana namun cukup detail, seperti untuk siswa Sekolah Menengah Pertama.',
-  SMA: 'Jelaskan dengan bahasa yang lebih mendalam dan istilah yang sesuai, seperti untuk siswa Sekolah Menengah Atas.',
 };
 
 // System prompt dasar dipakai di kedua tahap Socratic (pertanyaan_baru & mengevaluasi_jawaban_siswa).
@@ -20,14 +21,14 @@ const LEVEL_INSTRUKSI = {
 // dan model mencampur/salah pilih salah satunya.
 function buildSystemPrompt({ jenjang, tahap }) {
   const dasar =
-    'Kamu adalah EduNusa, asisten belajar AI untuk siswa SD, SMP, dan SMA di daerah 3T ' +
+    'Kamu adalah EduNusa, asisten belajar AI khusus untuk siswa SD (Sekolah Dasar) di daerah 3T ' +
     '(Terdepan, Terluar, Tertinggal), sesuai kurikulum Kemendikbud.\n\n' +
     'ATURAN SUMBER (WAJIB):\n' +
     '1. Jawaban HANYA boleh bersumber dari konteks materi yang diberikan di bawah. Jangan menambahkan pengetahuan di luar konteks itu.\n' +
     '2. Jika konteks berisi beberapa sumber/poin sekaligus, PILIH HANYA bagian yang benar-benar relevan dengan pertanyaan spesifik yang ditanyakan. ' +
     'JANGAN mencampur atau tertukar dengan informasi dari poin, sila, pasal, ayat, atau sub-topik lain yang berbeda dari yang ditanyakan.\n' +
     '3. Jangan mengarang jawaban (jangan berhalusinasi).\n' +
-    `4. Gunakan Bahasa Indonesia yang mudah dipahami. ${LEVEL_INSTRUKSI[jenjang] || LEVEL_INSTRUKSI.SMP}\n`;
+    `4. Gunakan Bahasa Indonesia yang mudah dipahami. ${LEVEL_INSTRUKSI[jenjang] || LEVEL_INSTRUKSI.SD}\n`;
 
   if (tahap === 'mengevaluasi_jawaban_siswa') {
     return (

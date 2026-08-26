@@ -22,7 +22,7 @@ const SMALL_TALK = [
   },
   {
     pola: /^(siapa (sih )?(kamu|namamu)|kamu (ini |itu )?siapa( sih)?|siapa nama(mu| kamu)|nama(mu| kamu)( siapa| apa)|perkenalkan dirimu|kenalan (dong|yuk))[\s!.,?]*$/i,
-    jawaban: 'Aku EduNusa, asisten belajar AI yang dikembangkan oleh tim EduNusa untuk membantu siswa di daerah 3T memahami pelajaran SD, SMP, dan SMA sesuai kurikulum Kemendikbud.',
+    jawaban: 'Aku EduNusa, asisten belajar AI yang dikembangkan oleh tim EduNusa untuk membantu siswa SD di daerah 3T memahami pelajaran sesuai kurikulum Kemendikbud.',
   },
   {
     pola: /^(siapa yang (membuat|menciptakan|mengembangkan)(mu| kamu)|kamu buatan siapa|dibuat oleh siapa)[\s!.,?]*$/i,
