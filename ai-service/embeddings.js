@@ -1,6 +1,18 @@
 const fs = require('fs');
 const path = require('path');
 const { generateEmbedding } = require('./ollama');
+const { extractTextFromImage } = require('./ocr');
+
+// Satu-satunya daftar ekstensi file materi yang didukung - dipakai backend/routes/materi.js dan
+// bank-materi.js supaya tidak ada dua daftar yang bisa saling tidak sinkron.
+const EKSTENSI_DIDUKUNG = ['.pdf', '.txt', '.docx', '.jpg', '.jpeg', '.png'];
+
+// Ambang batas teks hasil ekstraksi PDF: kalau di bawah ini, PDF-nya kemungkinan besar hasil
+// scan/foto (gambar tanpa lapisan teks digital) sehingga pdf-parse tidak dapat apa-apa. Merasterisasi
+// halaman PDF ke gambar butuh dependency native (mis. canvas) yang berisiko gagal di PC tanpa
+// compiler - jadi untuk kasus ini pengguna diarahkan upload per halaman sebagai JPG/PNG (yang
+// didukung penuh lewat OCR) alih-alih mencoba OCR PDF secara otomatis.
+const AMBANG_TEKS_PDF_SCAN = 20;
 
 // Vector store lokal berbasis file JSON (tanpa server/Docker terpisah).
 const STORE_PATH = process.env.VECTOR_STORE_PATH || path.join(__dirname, 'vector-store.json');
@@ -113,6 +125,14 @@ async function extractTextFromFile(filePath) {
     const buffer = fs.readFileSync(filePath);
     const parser = new PDFParse({ data: buffer });
     const result = await parser.getText();
+
+    if (result.text.trim().length < AMBANG_TEKS_PDF_SCAN) {
+      throw new Error(
+        'PDF ini sepertinya hasil scan/foto (tidak ada teks digital yang bisa dibaca). ' +
+        'Silakan upload per halaman sebagai foto/gambar (JPG/PNG) - sistem akan membacanya dengan OCR.'
+      );
+    }
+
     return result.text;
   }
 
@@ -120,6 +140,10 @@ async function extractTextFromFile(filePath) {
     const mammoth = require('mammoth');
     const result = await mammoth.extractRawText({ path: filePath });
     return result.value;
+  }
+
+  if (ext === '.jpg' || ext === '.jpeg' || ext === '.png') {
+    return extractTextFromImage(filePath);
   }
 
   throw new Error(`Format file tidak didukung: ${ext}`);
@@ -204,6 +228,7 @@ function getCollectionStats() {
 }
 
 module.exports = {
+  EKSTENSI_DIDUKUNG,
   chunkText,
   prosesFile,
   extractTextFromFile,

@@ -4,11 +4,15 @@ const path = require('path');
 const Materi = require('../models/Materi');
 const { auth, requireRole } = require('../middleware/auth');
 const { ok, ApiError } = require('../utils/response');
-const { chunkText, addDocument, extractTextFromFile, hapusDocumentByMateriId } = require('../../ai-service/embeddings');
+const {
+  EKSTENSI_DIDUKUNG,
+  chunkText,
+  addDocument,
+  extractTextFromFile,
+  hapusDocumentByMateriId,
+} = require('../../ai-service/embeddings');
 
 const router = express.Router();
-
-const EKSTENSI_DIDUKUNG = ['.pdf', '.txt', '.docx'];
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, path.join(__dirname, '..', 'uploads')),
@@ -19,7 +23,7 @@ const upload = multer({ storage });
 async function ambilKontenDariFile(file) {
   const ext = path.extname(file.originalname).toLowerCase();
   if (!EKSTENSI_DIDUKUNG.includes(ext)) {
-    throw new ApiError(`Format file tidak didukung: ${ext}. Gunakan PDF, TXT, atau DOCX.`, 400);
+    throw new ApiError(`Format file tidak didukung: ${ext}. Gunakan PDF, TXT, DOCX, atau foto/scan JPG/PNG.`, 400);
   }
 
   try {
@@ -91,7 +95,7 @@ router.post('/', auth, requireRole('guru', 'admin'), upload.single('file'), asyn
     }
 
     if (!konten || !konten.trim()) {
-      throw new ApiError('Konten materi wajib diisi (tulis manual atau upload file PDF/TXT/DOCX)', 400);
+      throw new ApiError('Konten materi wajib diisi (tulis manual atau upload file PDF/TXT/DOCX/JPG/PNG)', 400);
     }
 
     const materi = await Materi.create({

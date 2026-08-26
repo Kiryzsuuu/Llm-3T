@@ -47,3 +47,7 @@ edunusa-model/training-data/dataset-final.jsonl
 # (akun, materi, progres siswa — spesifik per PC, jangan pernah commit ke git)
 /mongodb-portable/
 /data/
+
+# Data bahasa OCR (~15MB, diunduh otomatis oleh start.ps1/setup — lihat README)
+/ocr-data/*
+!/ocr-data/.gitkeep

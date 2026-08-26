@@ -92,6 +92,21 @@ if (Test-Path $mongod) {
   Write-Ok "MongoDB portable terpasang di mongodb-portable/"
 }
 
+# --- 5b. Data bahasa OCR (untuk baca materi hasil foto/scan) ---
+Write-Step "Cek data bahasa OCR"
+$ocrDir = Join-Path $ROOT "ocr-data"
+$engData = Join-Path $ocrDir "eng.traineddata.gz"
+$indData = Join-Path $ocrDir "ind.traineddata.gz"
+if ((Test-Path $engData) -and (Test-Path $indData)) {
+  Write-Ok "Data bahasa OCR sudah ada"
+} else {
+  Write-Warn2 "Mengunduh data bahasa OCR (~15MB, sekali saja, butuh internet)..."
+  New-Item -ItemType Directory -Force -Path $ocrDir | Out-Null
+  Invoke-WebRequest -Uri "https://tessdata.projectnaptha.com/4.0.0/eng.traineddata.gz" -OutFile $engData -UseBasicParsing
+  Invoke-WebRequest -Uri "https://tessdata.projectnaptha.com/4.0.0/ind.traineddata.gz" -OutFile $indData -UseBasicParsing
+  Write-Ok "Data bahasa OCR terpasang di ocr-data/"
+}
+
 # --- 6. Dependency npm ---
 Write-Step "Cek dependency npm"
 if (Test-Path (Join-Path $ROOT "node_modules")) {

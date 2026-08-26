@@ -9,15 +9,34 @@ EduNusa dirancang untuk:
 - Menjawab dalam Bahasa Indonesia yang mudah dipahami, disesuaikan dengan jenjang murid.
 - Menolak dengan sopan ("Maaf, materi ini belum tersedia di EduNusa.") jika pertanyaan di luar kurikulum.
 - Memperkenalkan diri sebagai EduNusa buatan tim EduNusa, bukan sebagai model dasar aslinya.
+- Menerapkan alur **Socratic** (beri konteks tanpa membocorkan jawaban → tanya balik → evaluasi
+  jawaban siswa), bukan tanya-langsung-dijawab.
 
 Model ini dipakai oleh `ai-service/` (lihat `ollama.js` dan `rag.js`) sebagai model chat untuk fitur AI Tutor dan
 generate soal otomatis.
+
+## PENTING: Di mana mengubah perilaku EduNusa
+
+Ada **dua** file yang sama-sama berisi "instruksi" untuk EduNusa, tapi cuma satu yang benar-benar
+dipakai aplikasi web — jangan tertukar:
+
+| File | Dipakai kapan | Isi |
+|---|---|---|
+| `system-prompt.js` | **Aplikasi web** (setiap request lewat `POST /api/ai/tanya`) | Aturan sumber/anti-halusinasi, gaya bahasa per jenjang, dan **seluruh logika alur Socratic** |
+| `Modelfile` (bagian `SYSTEM`) | Hanya kalau model dipanggil langsung lewat `ollama run edunusa "..."` di terminal | Identitas dasar saja (nama, pembuat, cakupan materi) — **tidak** ada aturan Socratic |
+
+Backend selalu mengirim system prompt dari `system-prompt.js` di setiap request chat, dan itu
+menimpa SYSTEM bawaan Modelfile. Jadi: **untuk mengubah cara EduNusa menjelaskan materi atau
+menerapkan alur Socratic-nya, edit `system-prompt.js` — itu satu-satunya tempat yang perlu
+disentuh untuk update perilaku ke depannya.** Setelah diedit, tidak perlu `ollama create` ulang
+(itu cuma perlu kalau Modelfile yang diubah) — backend langsung memakai isi terbaru saat restart.
 
 ## Isi Folder
 
 ```
 edunusa-model/
-├── Modelfile           # konfigurasi Ollama: base model, SYSTEM prompt, parameter
+├── Modelfile           # identitas dasar untuk `ollama run edunusa` manual (lihat tabel di atas)
+├── system-prompt.js     # SATU-SATUNYA sumber perilaku EduNusa di aplikasi (edit di sini)
 ├── setup-edunusa.sh     # script otomatis untuk build & test model EduNusa
 └── README.md            # dokumentasi ini
 ```

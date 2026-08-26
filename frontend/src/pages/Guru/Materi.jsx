@@ -205,10 +205,10 @@ export default function GuruMateri() {
           </div>
 
           <div className="field">
-            <label>Upload file materi (PDF, TXT, atau DOCX)</label>
+            <label>Upload file materi (PDF, TXT, DOCX, atau foto/scan JPG/PNG)</label>
             <input
               type="file"
-              accept=".pdf,.txt,.docx"
+              accept=".pdf,.txt,.docx,.jpg,.jpeg,.png"
               onChange={(e) => setFile(e.target.files?.[0] || null)}
             />
             {file && (

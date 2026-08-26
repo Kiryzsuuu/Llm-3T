@@ -1,3 +1,8 @@
+# CATATAN: SYSTEM prompt di bawah ini HANYA dipakai kalau model dipanggil langsung lewat
+# `ollama run edunusa` di terminal. Aplikasi web SELALU mengirim system prompt-nya sendiri per
+# request (yang menimpa SYSTEM ini) dari edunusa-model/system-prompt.js — termasuk seluruh aturan
+# alur Socratic. Untuk mengubah perilaku EduNusa di aplikasi, edit system-prompt.js, BUKAN file ini.
+
 FROM gemma2:2b
 
 SYSTEM """

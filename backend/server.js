@@ -30,6 +30,13 @@ app.use(cors({ origin: process.env.CORS_ORIGIN || '*' }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Folder ini tidak ikut ter-commit ke git (isinya file upload guru/admin, spesifik per instalasi),
+// jadi harus dibuat otomatis saat backend start - tanpa ini, upload materi (multer) gagal dengan
+// ENOENT di instalasi baru manapun.
+const uploadsDir = path.join(__dirname, 'uploads');
+fs.mkdirSync(uploadsDir, { recursive: true });
+app.use('/uploads', express.static(uploadsDir));
+
 app.get('/api/health', (req, res) => res.json({ success: true, data: { status: 'ok' }, message: 'OK' }));
 
 app.use('/api/auth', authRoutes);

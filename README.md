@@ -8,13 +8,14 @@ Platform belajar fullstack (offline-first PWA) untuk siswa di daerah Terdepan, T
 2. [Prasyarat](#prasyarat-tanpa-docker)
 3. [Setup Awal (Sekali Saja)](#setup-awal-sekali-saja)
 4. [Menjalankan Aplikasi](#menjalankan-aplikasi)
-5. [Membuat Akun Admin Pertama](#membuat-akun-admin-pertama)
-6. [Cara Mengoperasikan Aplikasi](#cara-mengoperasikan-aplikasi)
-7. [Ringkasan API Backend](#ringkasan-api-backend)
-8. [Menguji Mode Offline (PWA)](#menguji-mode-offline-pwa)
-9. [Fine-tuning Model EduNusa](#fine-tuning-model-edunusa-opsional)
-10. [Troubleshooting](#troubleshooting)
-11. [Catatan Keamanan](#catatan-keamanan)
+5. [Deployment untuk Sekolah 3T (Tanpa Internet)](#deployment-untuk-sekolah-3t-tanpa-internet)
+6. [Membuat Akun Admin Pertama](#membuat-akun-admin-pertama)
+7. [Cara Mengoperasikan Aplikasi](#cara-mengoperasikan-aplikasi)
+8. [Ringkasan API Backend](#ringkasan-api-backend)
+9. [Menguji Mode Offline (PWA)](#menguji-mode-offline-pwa)
+10. [Fine-tuning Model EduNusa](#fine-tuning-model-edunusa-opsional)
+11. [Troubleshooting](#troubleshooting)
+12. [Catatan Keamanan](#catatan-keamanan)
 
 ---
 
@@ -70,8 +71,16 @@ Catatan penting: `ai-service` **bukan** proses yang berjalan sendiri — ia di-`
    `setup-edunusa.sh` otomatis menarik base model `gemma2:2b` dan membangun model chat `edunusa` yang dipakai
    AI Tutor (lihat `edunusa-model/README.md` untuk detail lengkap, termasuk cara memasang hasil fine-tuning sendiri).
    Ollama berjalan sebagai service di `localhost:11434` (`ollama serve` bila perlu dijalankan manual).
+4. **Data bahasa OCR** (untuk materi berupa foto/scan halaman buku, bukan file digital) — unduh dua file ini
+   sekali saja (butuh internet), taruh di folder `ocr-data/` di root proyek:
+   - [eng.traineddata.gz](https://tessdata.projectnaptha.com/4.0.0/eng.traineddata.gz)
+   - [ind.traineddata.gz](https://tessdata.projectnaptha.com/4.0.0/ind.traineddata.gz)
+
+   Setelah itu OCR jalan sepenuhnya offline (pakai [Tesseract.js](https://github.com/naptha/tesseract.js), WASM lokal, tanpa fetch apapun saat runtime).
 
 Tidak perlu ChromaDB/Docker — `ai-service` memakai vector store file lokal (`ai-service/vector-store.json`, dibuat otomatis) dengan cosine similarity murni JavaScript.
+
+`start.bat`/`start.ps1` (lihat bagian [Deployment](#deployment-untuk-sekolah-3t-tanpa-internet)) mengotomatiskan semua unduhan di atas (MongoDB portable + data bahasa OCR) — kalau pakai itu, poin 2-4 tidak perlu dikerjakan manual.
 
 ---
 
@@ -203,7 +212,7 @@ Ganti `GANTI_PASSWORD_INI`, `admin@contoh.com`, dan `Nama Admin` sesuai kebutuha
 1. Login di `/login` dengan akun admin.
 2. Dashboard admin (`/admin`) menampilkan ringkasan (jumlah murid/guru/admin/materi) dan menu ke semua fitur kelola:
    - **Kelola Pengguna** (`/admin/users`) — tambah/edit/hapus akun murid, guru, admin. Untuk reset password pengguna lain, buka form edit lalu isi field password (kosongkan jika tidak ingin mengubah).
-   - **Kelola Materi** (`/guru/materi`) — CRUD materi pelajaran (judul, mapel, jenjang, kelas, konten, file lampiran).
+   - **Kelola Materi** (`/guru/materi`) — CRUD materi pelajaran (judul, mapel, jenjang, kelas, konten, file lampiran PDF/TXT/DOCX atau foto/scan JPG/PNG — dibaca otomatis pakai OCR offline).
    - **Kelola Soal** (`/guru/soal`) — CRUD soal pilihan ganda per materi.
    - **Progress Murid** (`/guru/murid`) — pantau progres belajar murid per sekolah.
    - **Statistik EduNusa** (`/admin/edunusa`) — jumlah pertanyaan hari ini/minggu ini, rata-rata response time, daftar pertanyaan yang belum terjawab (insight konten yang perlu ditambahkan), dan tombol export log ke CSV.

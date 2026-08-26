@@ -144,8 +144,8 @@ export default function BankMateri() {
           </div>
 
           <div className="field">
-            <label>Upload file (PDF, TXT, atau DOCX)</label>
-            <input type="file" accept=".pdf,.txt,.docx" onChange={(e) => setFile(e.target.files?.[0] || null)} />
+            <label>Upload file (PDF, TXT, DOCX, atau foto/scan JPG/PNG)</label>
+            <input type="file" accept=".pdf,.txt,.docx,.jpg,.jpeg,.png" onChange={(e) => setFile(e.target.files?.[0] || null)} />
             {file && (
               <div className="text-muted mt-2" style={{ fontSize: 12 }}>
                 <i className="ti ti-file-check" /> {file.name} — konten akan diambil otomatis dari file ini.
