@@ -68,7 +68,7 @@ Catatan penting: `ai-service` **bukan** proses yang berjalan sendiri — ia di-`
    ./setup-edunusa.sh
    ```
 
-   `setup-edunusa.sh` otomatis menarik base model `gemma2:2b` dan membangun model chat `edunusa` yang dipakai
+   `setup-edunusa.sh` otomatis menarik base model `qwen2.5:1.5b` dan membangun model chat `edunusa` yang dipakai
    AI Tutor (lihat `edunusa-model/README.md` untuk detail lengkap, termasuk cara memasang hasil fine-tuning sendiri).
    Ollama berjalan sebagai service di `localhost:11434` (`ollama serve` bila perlu dijalankan manual).
 4. **Data bahasa OCR** (untuk materi berupa foto/scan halaman buku, bukan file digital) — unduh dua file ini

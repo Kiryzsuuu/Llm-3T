@@ -3,7 +3,7 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MODELFILE_PATH="$SCRIPT_DIR/Modelfile"
-BASE_MODEL="gemma2:2b"
+BASE_MODEL="qwen2.5:1.5b"
 MODEL_NAME="edunusa"
 
 echo "=== Setup EduNusa untuk Ollama ==="
@@ -25,7 +25,7 @@ fi
 echo "✓ Ollama sudah terinstall ($(ollama --version 2>/dev/null || echo 'versi tidak terdeteksi'))"
 echo
 
-# 2. Pull base model gemma2:2b jika belum ada
+# 2. Pull base model qwen2.5:1.5b jika belum ada
 if ollama list | awk '{print $1}' | grep -qx "$BASE_MODEL"; then
   echo "✓ Base model $BASE_MODEL sudah tersedia"
 else

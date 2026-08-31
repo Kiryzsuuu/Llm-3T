@@ -173,7 +173,7 @@ export default function AdminLatihAI() {
         <ol style={{ paddingLeft: 18, fontSize: 13, color: 'var(--text-2)', lineHeight: 1.9 }}>
           <li>Download file <code>.gguf</code> hasil training dari Colab, salin ke folder <code>edunusa-model/</code>.</li>
           <li>
-            Buka <code>edunusa-model/Modelfile</code>, ganti baris <code>FROM gemma2:2b</code> menjadi{' '}
+            Buka <code>edunusa-model/Modelfile</code>, ganti baris <code>FROM qwen2.5:1.5b</code> menjadi{' '}
             <code>FROM ./nama-file-hasil-finetuning.gguf</code>.
           </li>
           <li>

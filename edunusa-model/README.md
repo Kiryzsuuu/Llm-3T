@@ -1,7 +1,8 @@
 # EduNusa
 
 EduNusa adalah model AI Tutor resmi platform **EduNusa** — sebuah kustomisasi dari model bahasa lokal (saat ini
-`gemma2:2b` via Ollama) yang diberi identitas, batasan cakupan materi, dan gaya bahasa khusus agar cocok dipakai
+`qwen2.5:1.5b` via Ollama, dipilih karena kemampuan Bahasa Indonesia yang baik untuk ukurannya yang ringan)
+yang diberi identitas, batasan cakupan materi, dan gaya bahasa khusus agar cocok dipakai
 sebagai asisten belajar khusus untuk siswa SD (Sekolah Dasar) di daerah 3T (Terdepan, Terluar, Tertinggal).
 
 EduNusa dirancang untuk:
@@ -53,7 +54,7 @@ edunusa-model/
 
    Script ini akan otomatis:
    - Mengecek apakah Ollama sudah terinstall (memberi instruksi install bila belum).
-   - Menarik (`pull`) base model `gemma2:2b` bila belum ada di komputer kamu.
+   - Menarik (`pull`) base model `qwen2.5:1.5b` bila belum ada di komputer kamu.
    - Membuat model `edunusa` dari `Modelfile` (`ollama create edunusa -f Modelfile`).
    - Menguji model dengan pertanyaan "Siapa kamu?".
    - Menampilkan pesan sukses jika EduNusa siap dipakai.
@@ -61,7 +62,7 @@ edunusa-model/
 3. Setelah selesai, model bisa langsung dipanggil dengan nama `edunusa`:
 
    ```bash
-   ollama run edunusa "Jelaskan perkalian pecahan untuk anak SMP"
+   ollama run edunusa "Jelaskan perkalian pecahan untuk anak SD"
    ```
 
 4. Pastikan `backend/.env` memakai nama model ini (lihat variabel `EDUNUSA_MODEL`, default-nya sudah `edunusa`).
@@ -90,7 +91,7 @@ ollama create edunusa -f Modelfile
 
 ## Cara Ganti Base Weights dengan Hasil Fine-Tuning (.gguf)
 
-Saat ini `Modelfile` memakai base model `gemma2:2b` bawaan Ollama. Setelah proses fine-tuning selesai dan
+Saat ini `Modelfile` memakai base model `qwen2.5:1.5b` bawaan Ollama. Setelah proses fine-tuning selesai dan
 menghasilkan file bobot dalam format `.gguf`, ikuti langkah berikut:
 
 1. Salin file hasil fine-tuning (misalnya `edunusa-finetuned.gguf`) ke folder `edunusa-model/`.
@@ -98,7 +99,7 @@ menghasilkan file bobot dalam format `.gguf`, ikuti langkah berikut:
 2. Ubah baris pertama `Modelfile` dari:
 
    ```
-   FROM gemma2:2b
+   FROM qwen2.5:1.5b
    ```
 
    menjadi path ke file `.gguf` tersebut:

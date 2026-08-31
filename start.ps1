@@ -47,18 +47,18 @@ if ($modelList -match "nomic-embed-text") {
   ollama pull nomic-embed-text
 }
 
-# --- 4. Model chat EduNusa (gemma2:2b + build custom model) ---
+# --- 4. Model chat EduNusa (qwen2.5:1.5b + build custom model) ---
 Write-Step "Cek model EduNusa"
 $modelList = ollama list 2>&1 | Out-String
 if ($modelList -match "edunusa") {
   Write-Ok "Model 'edunusa' sudah ada"
 } else {
-  Write-Warn2 "Membangun model EduNusa (menarik base model gemma2:2b dulu bila perlu, butuh internet)..."
+  Write-Warn2 "Membangun model EduNusa (menarik base model qwen2.5:1.5b dulu bila perlu, butuh internet)..."
   $bash = "C:\Program Files\Git\bin\bash.exe"
   if (Test-Path $bash) {
     & $bash "edunusa-model/setup-edunusa.sh"
   } else {
-    ollama pull gemma2:2b
+    ollama pull qwen2.5:1.5b
     ollama create edunusa -f "edunusa-model\Modelfile"
   }
 }

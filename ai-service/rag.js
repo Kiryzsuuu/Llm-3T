@@ -105,13 +105,39 @@ function adaKecocokanKataKunci(pertanyaan, dokumen) {
   });
 }
 
+// Deteksi rujukan urutan eksplisit di pertanyaan (mis. "sila ke-2", "pasal ke-3") dan PERSEMPIT
+// konteks jadi HANYA chunk yang cocok urutannya itu, buang semua chunk lain. Awalnya ini cuma
+// menaruh chunk yang cocok di posisi pertama (bukan filter), tapi dari pengujian terbukti model
+// kecil (Qwen2.5:1.5b) TETAP bisa salah pilih walau chunk yang benar sudah di posisi pertama,
+// begitu masih ada chunk "pengalih perhatian" lain yang mirip topik (mis. sila lain) di konteks
+// yang sama. Filter total (bukan cuma reorder) menghilangkan ambiguitas ini di akar masalahnya -
+// model tidak punya opsi untuk salah pilih kalau cuma diberi satu sumber yang relevan.
+const POLA_ORDINAL_PERTANYAAN = /ke[- ]?(\d+)\b/i;
+
+function cocokOrdinalChunk(teks, angka) {
+  const awalTeks = teks.trim().slice(0, 60);
+  return new RegExp(`^${angka}[.)]`).test(teks.trim()) || new RegExp(`ke[- ]?${angka}\\b`, 'i').test(awalTeks);
+}
+
+function prioritaskanOrdinal(dokumen, metadatas, pertanyaan) {
+  const cocokAngka = pertanyaan.match(POLA_ORDINAL_PERTANYAAN);
+  if (!cocokAngka) return { dokumen, metadatas };
+
+  const angka = cocokAngka[1];
+  const idx = dokumen.findIndex((d) => cocokOrdinalChunk(d, angka));
+  if (idx === -1) return { dokumen, metadatas }; // tidak ada chunk yang cocok urutannya, biarkan apa adanya
+
+  return { dokumen: [dokumen[idx]], metadatas: [metadatas[idx]] };
+}
+
 async function retrieveContext(pertanyaan, filter = {}) {
   const { materi_id } = filter;
   const where = materi_id ? { materi_id: String(materi_id) } : undefined;
 
   const hasil = await queryDocuments(pertanyaan, 4, where);
-  const dokumen = (hasil.documents && hasil.documents[0]) || [];
-  const metadatas = (hasil.metadatas && hasil.metadatas[0]) || [];
+  const mentah = (hasil.documents && hasil.documents[0]) || [];
+  const metadataMentah = (hasil.metadatas && hasil.metadatas[0]) || [];
+  const { dokumen, metadatas } = prioritaskanOrdinal(mentah, metadataMentah, pertanyaan);
   let confidence = hitungConfidence(hasil);
   const konteks = dokumen.map((d, i) => `[Sumber ${i + 1}]\n${d}`).join('\n\n');
 
