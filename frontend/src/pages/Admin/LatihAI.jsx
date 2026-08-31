@@ -153,8 +153,8 @@ export default function AdminLatihAI() {
         <p className="text-muted mb-3" style={{ fontSize: 13 }}>
           Upload <code>dataset-final.jsonl</code> yang sudah didownload ke notebook{' '}
           <code>edunusa-model/training-data/finetune-colab.ipynb</code> di Google Colab. Notebook ini akan
-          melakukan fine-tuning LoRA di atas <code>gemma-2-2b</code> lalu mengekspor hasilnya ke format GGUF
-          (kuantisasi Q4_K_M, ringan untuk perangkat terbatas).
+          melakukan fine-tuning LoRA di atas <code>Qwen2.5-1.5B-Instruct</code> lalu mengekspor hasilnya ke format
+          GGUF (kuantisasi Q4_K_M, ringan untuk perangkat terbatas).
         </p>
         <div className="alert blue">
           <i className="ti ti-info-circle" />

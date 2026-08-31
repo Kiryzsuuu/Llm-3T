@@ -93,8 +93,28 @@ function pisahPerBagian(teks) {
   return hasil.filter((b) => b.isi.length > 30);
 }
 
+// Pola nama file resmi Kemendikdasmen (mis. "Bahasa_Indonesia_BS_KLS_IV_Rev.pdf") ambigu kalau
+// cuma diambil kata pertamanya saja - "Bahasa_Indonesia..." jadi cuma "Bahasa" (hilang setengah
+// nama mapelnya), "IPAS_BS_KLS_VI..." jadi "Ipas" (kapitalisasi salah, harusnya semua kapital).
+// Daftar di bawah menangani pola yang sudah dikenal dari buku Kemendikdasmen; nama file lain di
+// luar pola ini tetap jatuh ke tebakan kata-pertama seperti sebelumnya.
+const POLA_MAPEL_DIKENAL = [
+  [/^bahasa[_\s-]?indonesia/i, 'Bahasa Indonesia'],
+  [/^indonesia/i, 'Bahasa Indonesia'],
+  [/^inggris/i, 'Bahasa Inggris'],
+  [/^ipas/i, 'IPAS'],
+  [/^kka/i, 'Koding dan Kecerdasan Artifisial'],
+  [/^pendidikan[_\s-]?pancasila/i, 'Pendidikan Pancasila'],
+  [/^pjok/i, 'PJOK'],
+];
+
 function tebakMapel(namaFile) {
   const base = path.basename(namaFile, path.extname(namaFile));
+
+  for (const [pola, mapel] of POLA_MAPEL_DIKENAL) {
+    if (pola.test(base)) return mapel;
+  }
+
   const bagianPertama = base.split(/[-_\s]+/)[0];
   return bagianPertama.charAt(0).toUpperCase() + bagianPertama.slice(1).toLowerCase();
 }
