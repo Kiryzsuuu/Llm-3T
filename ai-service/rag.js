@@ -1,5 +1,6 @@
 const { chat } = require('./ollama');
 const { queryDocuments } = require('./embeddings');
+const { cariDanHitungEkspresi } = require('./calculator');
 // Perilaku/kepribadian EduNusa (gaya bahasa, aturan sumber, alur Socratic) tersentral di satu
 // tempat: edunusa-model/system-prompt.js. Edit di sana untuk mengubah cara EduNusa "berpikir",
 // bukan di sini.
@@ -217,12 +218,22 @@ async function chatPertanyaanBaru({ pertanyaan, konteks, jenjang }) {
 }
 
 async function chatEvaluasiJawaban({ pertanyaanAsli, konteks, jawabanSiswa, jenjang }) {
+  // Model kecil (Qwen2.5:1.5b) terbukti dari pengujian sering salah hitung sendiri untuk angka
+  // yang cukup besar (mis. perkalian 4 digit), dan tool-calling asli Ollama juga tidak reliabel
+  // begitu ada system prompt. Jadi kalkulasi dilakukan deterministik di kode (lihat calculator.js),
+  // hasilnya disuntikkan sebagai fakta terverifikasi - model tinggal membandingkan/menjelaskan,
+  // bukan menghitung sendiri dari nol.
+  const kalkulasi = cariDanHitungEkspresi(pertanyaanAsli);
+  const konteksFinal = kalkulasi
+    ? `${konteks}\n\n[Hasil kalkulator terverifikasi, PASTI benar - jadikan acuan utama]\n${kalkulasi.ekspresi} = ${kalkulasi.hasil}`
+    : konteks;
+
   const messages = [
     { role: 'system', content: buildSystemPrompt({ jenjang, tahap: 'mengevaluasi_jawaban_siswa' }) },
     {
       role: 'user',
       content:
-        `Konteks materi:\n${konteks}\n\n` +
+        `Konteks materi:\n${konteksFinal}\n\n` +
         `Pertanyaan awal siswa: ${pertanyaanAsli}\n\n` +
         `Jawaban percobaan siswa: ${jawabanSiswa}`,
     },
@@ -265,7 +276,44 @@ async function generateSoal({ topik, materiId, jumlah = 5, tingkat_kesulitan = '
     throw new Error('Gagal mem-parsing hasil soal dari AI');
   }
 
-  return soal;
+  return soal.map(verifikasiJawabanHitungan);
+}
+
+// Kalau pertanyaan soal mengandung ekspresi aritmetika yang bisa dihitung pasti (mis. "Berapa
+// 47 x 23?"), verifikasi kunci jawaban AI terhadap hasil kalkulator. Kalau salah satu pilihan
+// cocok dengan hasil yang benar, jadikan itu jawaban_benar (perbaiki kalau AI salah tandai).
+// Kalau tidak ada pilihan yang cocok sama sekali, timpa pilihan yang ditandai AI sebagai benar
+// dengan angka yang benar - supaya kunci jawaban tetap akurat walau AI salah hitung.
+function angkaDariTeksPilihan(teks) {
+  const bersih = String(teks).replace(/[^\d.,\-]/g, '').replace(/\.(?=\d{3})/g, '').replace(',', '.');
+  return parseFloat(bersih);
+}
+
+function formatAngkaId(n) {
+  return Number.isInteger(n) ? n.toLocaleString('id-ID') : String(n);
+}
+
+function verifikasiJawabanHitungan(s) {
+  if (!s || !s.pertanyaan || !Array.isArray(s.pilihan)) return s;
+  const kalkulasi = cariDanHitungEkspresi(s.pertanyaan);
+  if (!kalkulasi) return s;
+
+  const idxCocok = s.pilihan.findIndex((p) => {
+    const angka = angkaDariTeksPilihan(p);
+    return Number.isFinite(angka) && Math.abs(angka - kalkulasi.hasil) < 0.001;
+  });
+
+  if (idxCocok >= 0) {
+    return { ...s, jawaban_benar: idxCocok };
+  }
+
+  const pilihanBaru = [...s.pilihan];
+  const idxTimpa =
+    typeof s.jawaban_benar === 'number' && s.jawaban_benar >= 0 && s.jawaban_benar < pilihanBaru.length
+      ? s.jawaban_benar
+      : 0;
+  pilihanBaru[idxTimpa] = formatAngkaId(kalkulasi.hasil);
+  return { ...s, pilihan: pilihanBaru, jawaban_benar: idxTimpa };
 }
 
 module.exports = {
