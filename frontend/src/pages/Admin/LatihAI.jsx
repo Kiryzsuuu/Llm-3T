@@ -142,7 +142,8 @@ export default function AdminLatihAI() {
               <i className="ti ti-circle-check" /> Dataset berhasil dibuat: {hasilGenerate.totalSampel} sampel
             </div>
             <div>
-              Identitas: {hasilGenerate.totalIdentitas} · Materi kurikulum: {hasilGenerate.totalKurikulum}
+              Identitas: {hasilGenerate.totalIdentitas} · Pola Socratic: {hasilGenerate.totalSocratic ?? 0} · Materi
+              kurikulum: {hasilGenerate.totalKurikulum}
             </div>
           </div>
         )}

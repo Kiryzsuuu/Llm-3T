@@ -14,10 +14,29 @@ const path = require('path');
 
 const KURIKULUM_DIR = path.join(__dirname, '..', 'kurikulum');
 const IDENTITY_PATH = path.join(__dirname, 'identity.jsonl');
+const SOCRATIC_PATH = path.join(__dirname, 'socratic-examples.jsonl');
 const OUTPUT_PATH = path.join(__dirname, 'dataset-final.jsonl');
 
 const EKSTENSI_DIDUKUNG = ['.txt', '.pdf'];
 const UKURAN_CHUNK = 800; // karakter per bagian materi
+
+// Batas jumlah sampel "kurikulum" (pola jawab-langsung) per buku. Tanpa batas ini, 1 buku SD utuh
+// bisa menghasilkan 400-500+ sampel - dikali 8 buku jadi ribuan, membuat sampel kurikulum
+// membanjiri dataset (rasio ribuan:puluhan dibanding contoh Socratic). Karena training pada
+// dasarnya belajar dari POLA yang paling sering muncul, rasio timpang seperti itu berisiko
+// training malah memperkuat pola "tanya -> jawab langsung" alih-alih pola Socratic yang justru
+// mau diperkuat. Diambil merata dari seluruh buku (bukan cuma awal) supaya topiknya tetap beragam.
+const MAKS_SAMPEL_PER_FILE = 40;
+
+function ambilSampelMerata(daftar, maks) {
+  if (daftar.length <= maks) return daftar;
+  const langkah = daftar.length / maks;
+  const hasil = [];
+  for (let i = 0; i < maks; i++) {
+    hasil.push(daftar[Math.floor(i * langkah)]);
+  }
+  return hasil;
+}
 
 // --- ekstraksi teks per format file ---
 
@@ -157,13 +176,16 @@ async function main() {
     try {
       const teks = await ekstrakTeksDariFile(filePath);
       const mapel = tebakMapel(namaFile);
-      const bagianList = pisahPerBagian(teks);
+      const bagianListPenuh = pisahPerBagian(teks);
+      const bagianList = ambilSampelMerata(bagianListPenuh, MAKS_SAMPEL_PER_FILE);
 
       bagianList.forEach((bagian) => {
         samplesKurikulum.push(buatPasanganInstruksi(bagian, mapel));
       });
 
-      console.log(`  ✓ ${namaFile} -> ${bagianList.length} bagian (mapel: ${mapel})`);
+      console.log(
+        `  ✓ ${namaFile} -> ${bagianList.length} bagian dipakai (dari ${bagianListPenuh.length} total, mapel: ${mapel})`
+      );
     } catch (err) {
       console.error(`  ✗ Gagal memproses ${namaFile}: ${err.message}`);
     }
@@ -185,7 +207,28 @@ async function main() {
     console.warn('Peringatan: identity.jsonl tidak ditemukan, dataset akan berjalan tanpa data identitas.');
   }
 
-  const semuaSample = [...samplesIdentity, ...samplesKurikulum];
+  // Contoh pola Socratic (tanya -> konteks tanpa bocor jawaban -> tanya balik -> evaluasi) - PENTING
+  // supaya training tidak cuma memperkuat pola "tanya langsung dijawab" dari sample kurikulum di
+  // atas (yang formatnya memang penjelasan langsung, bukan Socratic). Lihat EDUNUSA_CATATAN_PERBAIKAN.md.
+  let samplesSocratic = [];
+  if (fs.existsSync(SOCRATIC_PATH)) {
+    samplesSocratic = fs
+      .readFileSync(SOCRATIC_PATH, 'utf-8')
+      .trim()
+      .split('\n')
+      .filter(Boolean)
+      .map((line) => JSON.parse(line));
+  } else {
+    console.warn('Peringatan: socratic-examples.jsonl tidak ditemukan - dataset tidak akan punya contoh pola Socratic.');
+  }
+
+  // Contoh Socratic digandakan beberapa kali supaya polanya cukup "terasa" berulang saat training
+  // dibanding ribuan sampel kurikulum (pola jawab-langsung) - tanpa ini, sinyal Socratic yang cuma
+  // belasan sampel berisiko tenggelam total dibanding ratusan sampel kurikulum per mapel.
+  const PENGALI_SOCRATIC = 3;
+  const samplesSocraticDigandakan = Array(PENGALI_SOCRATIC).fill(samplesSocratic).flat();
+
+  const semuaSample = [...samplesIdentity, ...samplesSocraticDigandakan, ...samplesKurikulum];
 
   fs.writeFileSync(OUTPUT_PATH, semuaSample.map((s) => JSON.stringify(s)).join('\n') + '\n');
 
@@ -205,6 +248,9 @@ async function main() {
   console.log('\n=== Statistik Dataset ===');
   console.log(`Total sampel: ${semuaSample.length}`);
   console.log(`  - Identitas EduNusa: ${samplesIdentity.length}`);
+  console.log(
+    `  - Contoh pola Socratic: ${samplesSocraticDigandakan.length} (${samplesSocratic.length} unik x${PENGALI_SOCRATIC})`
+  );
   console.log(`  - Materi kurikulum: ${samplesKurikulum.length}`);
 
   console.log('\nDistribusi per kategori:');
@@ -220,6 +266,7 @@ async function main() {
   return {
     totalSampel: semuaSample.length,
     totalIdentitas: samplesIdentity.length,
+    totalSocratic: samplesSocraticDigandakan.length,
     totalKurikulum: samplesKurikulum.length,
     distribusiKategori,
     distribusiMapel,
