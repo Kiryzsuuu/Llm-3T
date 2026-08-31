@@ -6,6 +6,7 @@ const FORM_KOSONG = { judul: '', mapel: '', jenjang: 'SD', kelas: '', bab: '', k
 export default function GuruMateri() {
   const [materi, setMateri] = useState([]);
   const [mapelList, setMapelList] = useState([]);
+  const [mapelId, setMapelId] = useState(''); // Mapel yang sedang dijelajahi - materi selalu ditampilkan di bawah 1 mapel, mencerminkan hirarki Mapel > Materi.
   const [bankMateriList, setBankMateriList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -18,10 +19,14 @@ export default function GuruMateri() {
   const [sumberMateri, setSumberMateri] = useState('baru'); // 'baru' | 'bank'
   const [bankIdDipilih, setBankIdDipilih] = useState('');
 
-  async function load() {
+  async function load(mapelUntukFilter) {
+    if (!mapelUntukFilter) {
+      setMateri([]);
+      return;
+    }
     setLoading(true);
     try {
-      const { data } = await api.get('/materi');
+      const { data } = await api.get('/materi', { params: { mapel: mapelUntukFilter } });
       setMateri(data);
     } finally {
       setLoading(false);
@@ -29,13 +34,20 @@ export default function GuruMateri() {
   }
 
   useEffect(() => {
-    load();
-    api.get('/mapel').then(({ data }) => setMapelList(data));
+    api.get('/mapel').then(({ data }) => {
+      setMapelList(data);
+      if (data.length > 0) setMapelId(data[0]._id);
+      else setLoading(false);
+    });
     api.get('/bank-materi').then(({ data }) => setBankMateriList(data));
   }, []);
 
+  useEffect(() => {
+    load(mapelId);
+  }, [mapelId]);
+
   function handleTambahBaru() {
-    setForm({ ...FORM_KOSONG, mapel: mapelList[0]?._id || '' });
+    setForm({ ...FORM_KOSONG, mapel: mapelId });
     setFile(null);
     setEditId(null);
     setSumberMateri('baru');
@@ -65,7 +77,7 @@ export default function GuruMateri() {
   async function handleHapus() {
     await api.delete(`/materi/${hapusTarget._id}`);
     setHapusTarget(null);
-    load();
+    load(mapelId);
   }
 
   async function handleSubmit(e) {
@@ -92,7 +104,7 @@ export default function GuruMateri() {
         await api.post('/materi', payload);
       }
       setShowForm(false);
-      load();
+      load(mapelId);
     } catch (err) {
       setError(err.response?.data?.message || 'Gagal menyimpan materi');
     } finally {
@@ -258,27 +270,43 @@ export default function GuruMateri() {
         <div className="sec-title" style={{ fontSize: 17 }}>
           Kelola materi
         </div>
-        <button className="btn" onClick={handleTambahBaru}>
+        <button className="btn" onClick={handleTambahBaru} disabled={!mapelId}>
           <i className="ti ti-plus" /> Tambah materi
         </button>
       </div>
 
+      <div className="field" style={{ maxWidth: 360 }}>
+        <label>Mata pelajaran</label>
+        <select value={mapelId} onChange={(e) => setMapelId(e.target.value)}>
+          {mapelList.length === 0 && <option value="">Belum ada mata pelajaran</option>}
+          {mapelList.map((m) => (
+            <option key={m._id} value={m._id}>
+              {m.nama}
+            </option>
+          ))}
+        </select>
+      </div>
+
       <div className="panel tbl-wrap" style={{ padding: '6px 16px' }}>
-        {loading ? (
+        {!mapelId ? (
+          <p className="text-muted" style={{ padding: '10px 0' }}>
+            Buat mata pelajaran dulu di menu "Mata pelajaran" sebelum menambahkan materi.
+          </p>
+        ) : loading ? (
           <p className="text-muted" style={{ padding: '10px 0' }}>
             Memuat materi...
           </p>
         ) : materi.length === 0 ? (
           <p className="text-muted" style={{ padding: '10px 0' }}>
-            Belum ada materi. Tambahkan materi baru.
+            Belum ada materi untuk mapel ini. Tambahkan materi baru.
           </p>
         ) : (
           <table className="tbl">
             <thead>
               <tr>
                 <th>Judul</th>
-                <th>Mapel</th>
                 <th>Kelas</th>
+                <th>Bab</th>
                 <th></th>
               </tr>
             </thead>
@@ -286,8 +314,8 @@ export default function GuruMateri() {
               {materi.map((m) => (
                 <tr key={m._id}>
                   <td className="row-name">{m.judul}</td>
-                  <td>{m.mapel?.nama}</td>
                   <td>{m.kelas}</td>
+                  <td>{m.bab || '—'}</td>
                   <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                     <button className="btn ghost" style={{ padding: '5px 9px' }} onClick={() => handleEdit(m)}>
                       <i className="ti ti-edit" />
