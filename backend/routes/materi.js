@@ -2,12 +2,13 @@ const express = require('express');
 const multer = require('multer');
 const path = require('path');
 const Materi = require('../models/Materi');
+const Mapel = require('../models/Mapel');
 const { auth, requireRole } = require('../middleware/auth');
 const { ok, ApiError } = require('../utils/response');
 const {
   EKSTENSI_DIDUKUNG,
   chunkText,
-  addDocument,
+  addDocuments,
   extractTextFromFile,
   hapusDocumentByMateriId,
 } = require('../../ai-service/embeddings');
@@ -33,12 +34,14 @@ async function ambilKontenDariFile(file) {
   }
 }
 
+// `materi` di sini harus sudah di-populate('mapel') supaya metadata vector store (dipakai untuk
+// citation "sumber" ke pengguna) menyimpan NAMA mapel yang bisa dibaca, bukan ObjectId mentah.
 async function ingestMateri(materi) {
   if (!materi.konten) return;
 
   const metadata = {
     materi_id: String(materi._id),
-    mapel: materi.mapel,
+    mapel: materi.mapel?.nama || String(materi.mapel),
     jenjang: materi.jenjang,
     kelas: materi.kelas,
     bab: materi.bab,
@@ -46,9 +49,12 @@ async function ingestMateri(materi) {
 
   try {
     const chunks = chunkText(materi.konten, 500);
-    for (let i = 0; i < chunks.length; i++) {
-      await addDocument({ id: `${metadata.materi_id}-${i}`, text: chunks[i], metadata: { ...metadata, chunk_index: i } });
-    }
+    const docs = chunks.map((teks, i) => ({
+      id: `${metadata.materi_id}-${i}`,
+      text: teks,
+      metadata: { ...metadata, chunk_index: i },
+    }));
+    await addDocuments(docs);
   } catch (err) {
     // Ingest RAG bersifat best-effort: materi tetap tersimpan di DB meski Ollama sedang offline.
     console.error('Gagal mengindeks materi ke vector store:', err.message);
@@ -64,7 +70,7 @@ router.get('/', async (req, res, next) => {
     if (kelas) filter.kelas = kelas;
     if (bab) filter.bab = bab;
 
-    const materi = await Materi.find(filter).sort({ createdAt: -1 });
+    const materi = await Materi.find(filter).sort({ createdAt: -1 }).populate('mapel', 'nama icon warna');
     return ok(res, materi, 'Daftar materi berhasil diambil');
   } catch (err) {
     next(err);
@@ -73,7 +79,7 @@ router.get('/', async (req, res, next) => {
 
 router.get('/:id', async (req, res, next) => {
   try {
-    const materi = await Materi.findById(req.params.id);
+    const materi = await Materi.findById(req.params.id).populate('mapel', 'nama icon warna');
     if (!materi) throw new ApiError('Materi tidak ditemukan', 404);
     return ok(res, materi, 'Detail materi berhasil diambil');
   } catch (err) {
@@ -90,6 +96,11 @@ router.post('/', auth, requireRole('guru', 'admin'), upload.single('file'), asyn
       throw new ApiError('judul, mapel, jenjang, dan kelas wajib diisi', 400);
     }
 
+    const mapelDoc = await Mapel.findById(mapel).catch(() => null);
+    if (!mapelDoc) {
+      throw new ApiError('Mata pelajaran tidak ditemukan. Pilih dari daftar mapel yang tersedia.', 400);
+    }
+
     if (req.file && !konten) {
       konten = await ambilKontenDariFile(req.file);
     }
@@ -98,9 +109,9 @@ router.post('/', auth, requireRole('guru', 'admin'), upload.single('file'), asyn
       throw new ApiError('Konten materi wajib diisi (tulis manual atau upload file PDF/TXT/DOCX/JPG/PNG)', 400);
     }
 
-    const materi = await Materi.create({
+    let materi = await Materi.create({
       judul,
-      mapel,
+      mapel: mapelDoc._id,
       jenjang,
       kelas,
       bab,
@@ -108,6 +119,7 @@ router.post('/', auth, requireRole('guru', 'admin'), upload.single('file'), asyn
       file_url: req.file ? `/uploads/${req.file.filename}` : undefined,
       dibuat_oleh: req.user.id,
     });
+    materi = await materi.populate('mapel', 'nama icon warna');
 
     await ingestMateri(materi);
 
@@ -121,12 +133,23 @@ router.put('/:id', auth, requireRole('guru', 'admin'), upload.single('file'), as
   try {
     const update = { ...req.body };
 
+    if (update.mapel) {
+      const mapelDoc = await Mapel.findById(update.mapel).catch(() => null);
+      if (!mapelDoc) {
+        throw new ApiError('Mata pelajaran tidak ditemukan. Pilih dari daftar mapel yang tersedia.', 400);
+      }
+      update.mapel = mapelDoc._id;
+    }
+
     if (req.file) {
       update.konten = update.konten && update.konten.trim() ? update.konten : await ambilKontenDariFile(req.file);
       update.file_url = `/uploads/${req.file.filename}`;
     }
 
-    const materi = await Materi.findByIdAndUpdate(req.params.id, update, { new: true, runValidators: true });
+    const materi = await Materi.findByIdAndUpdate(req.params.id, update, { new: true, runValidators: true }).populate(
+      'mapel',
+      'nama icon warna'
+    );
     if (!materi) throw new ApiError('Materi tidak ditemukan', 404);
 
     if (update.konten) {

@@ -32,7 +32,7 @@ export default function BankMateri() {
   }, []);
 
   function handleTambahBaru() {
-    setForm({ ...FORM_KOSONG, mapel: mapelList[0]?.nama || '' });
+    setForm({ ...FORM_KOSONG, mapel: mapelList[0]?._id || '' });
     setFile(null);
     setEditId(null);
     setShowForm(true);
@@ -40,7 +40,7 @@ export default function BankMateri() {
   }
 
   function handleEdit(item) {
-    setForm({ judul: item.judul, mapel: item.mapel, jenjang: item.jenjang, bab: item.bab || '', konten: item.konten });
+    setForm({ judul: item.judul, mapel: item.mapel?._id || '', jenjang: item.jenjang, bab: item.bab || '', konten: item.konten });
     setFile(null);
     setEditId(item._id);
     setShowForm(true);
@@ -122,7 +122,7 @@ export default function BankMateri() {
                   Pilih mapel
                 </option>
                 {mapelList.map((m) => (
-                  <option key={m._id} value={m.nama}>
+                  <option key={m._id} value={m._id}>
                     {m.nama}
                   </option>
                 ))}
@@ -231,7 +231,7 @@ export default function BankMateri() {
               {itemTampil.map((item) => (
                 <tr key={item._id}>
                   <td className="row-name">{item.judul}</td>
-                  <td>{item.mapel}</td>
+                  <td>{item.mapel?.nama}</td>
                   <td>{item.jenjang}</td>
                   <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                     <button className="btn ghost" style={{ padding: '5px 9px' }} onClick={() => handleEdit(item)}>

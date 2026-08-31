@@ -26,8 +26,10 @@ async function catatAiLog({ muridId, pertanyaan, jawaban, materiId, responseTime
   try {
     let mapel;
     if (materiId) {
-      const materi = await Materi.findById(materiId).select('mapel');
-      mapel = materi?.mapel;
+      // AiLog.mapel tetap disimpan sebagai teks (snapshot historis untuk statistik), berbeda dari
+      // Materi.mapel yang sekarang referensi database sungguhan - jadi perlu di-populate ke nama.
+      const materi = await Materi.findById(materiId).select('mapel').populate('mapel', 'nama');
+      mapel = materi?.mapel?.nama;
     }
 
     await AiLog.create({

@@ -53,14 +53,14 @@ export default function MateriDetail() {
   return (
     <div className="container" style={{ maxWidth: 760 }}>
       <div className="breadcrumb">
-        <Link to="/murid/materi">Materi</Link> · {materi.mapel} · Kelas {materi.kelas}
+        <Link to="/murid/materi">Materi</Link> · {materi.mapel?.nama} · Kelas {materi.kelas}
       </div>
 
       <div className="flex items-start justify-between gap-3 mb-4" style={{ flexWrap: 'wrap' }}>
         <div>
           <div style={{ fontSize: 20, fontWeight: 500 }}>{materi.judul}</div>
           <div className="flex gap-2 mt-2">
-            <span className="badge teal">{materi.mapel}</span>
+            <span className="badge teal">{materi.mapel?.nama}</span>
             <span className="badge blue">Kelas {materi.kelas}</span>
             {materi.bab && <span className="badge amber">{materi.bab}</span>}
           </div>

@@ -35,7 +35,7 @@ export default function GuruMateri() {
   }, []);
 
   function handleTambahBaru() {
-    setForm({ ...FORM_KOSONG, mapel: mapelList[0]?.nama || '' });
+    setForm({ ...FORM_KOSONG, mapel: mapelList[0]?._id || '' });
     setFile(null);
     setEditId(null);
     setSumberMateri('baru');
@@ -48,12 +48,12 @@ export default function GuruMateri() {
     setBankIdDipilih(id);
     const item = bankMateriList.find((b) => b._id === id);
     if (!item) return;
-    setForm((f) => ({ ...f, judul: item.judul, mapel: item.mapel, jenjang: item.jenjang, bab: item.bab || '', konten: item.konten }));
+    setForm((f) => ({ ...f, judul: item.judul, mapel: item.mapel?._id || '', jenjang: item.jenjang, bab: item.bab || '', konten: item.konten }));
     setFile(null);
   }
 
   function handleEdit(m) {
-    setForm({ judul: m.judul, mapel: m.mapel, jenjang: m.jenjang, kelas: m.kelas, bab: m.bab || '', konten: m.konten });
+    setForm({ judul: m.judul, mapel: m.mapel?._id || '', jenjang: m.jenjang, kelas: m.kelas, bab: m.bab || '', konten: m.konten });
     setFile(null);
     setEditId(m._id);
     setSumberMateri('baru');
@@ -139,7 +139,7 @@ export default function GuruMateri() {
                   </option>
                   {bankMateriList.map((item) => (
                     <option key={item._id} value={item._id}>
-                      {item.judul} — {item.mapel} ({item.jenjang})
+                      {item.judul} — {item.mapel?.nama} ({item.jenjang})
                     </option>
                   ))}
                 </select>
@@ -173,7 +173,7 @@ export default function GuruMateri() {
                   Pilih mapel
                 </option>
                 {mapelList.map((m) => (
-                  <option key={m._id} value={m.nama}>
+                  <option key={m._id} value={m._id}>
                     {m.nama}
                   </option>
                 ))}
@@ -286,7 +286,7 @@ export default function GuruMateri() {
               {materi.map((m) => (
                 <tr key={m._id}>
                   <td className="row-name">{m.judul}</td>
-                  <td>{m.mapel}</td>
+                  <td>{m.mapel?.nama}</td>
                   <td>{m.kelas}</td>
                   <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                     <button className="btn ghost" style={{ padding: '5px 9px' }} onClick={() => handleEdit(m)}>

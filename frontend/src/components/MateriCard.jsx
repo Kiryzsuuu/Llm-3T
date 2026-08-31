@@ -3,7 +3,7 @@ import ProgressBar from './ProgressBar';
 import { gayaMapel, WARNA_HEX, BG_HEX } from '../utils/mapelStyle';
 
 export default function MateriCard({ materi, persenProgress }) {
-  const { icon, warna } = gayaMapel(materi.mapel);
+  const { icon, warna } = gayaMapel(materi.mapel?.nama);
 
   return (
     <Link to={`/murid/materi/${materi._id}`} className="mp">
@@ -19,7 +19,7 @@ export default function MateriCard({ materi, persenProgress }) {
       </div>
       <div className="mp-name">{materi.judul}</div>
       <div className="mp-sub">
-        {materi.mapel} · {materi.jenjang} · Kelas {materi.kelas}
+        {materi.mapel?.nama} · {materi.jenjang} · Kelas {materi.kelas}
       </div>
       {typeof persenProgress === 'number' && (
         <div className="bar">

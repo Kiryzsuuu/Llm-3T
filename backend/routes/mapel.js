@@ -1,5 +1,7 @@
 const express = require('express');
 const Mapel = require('../models/Mapel');
+const Materi = require('../models/Materi');
+const BankMateri = require('../models/BankMateri');
 const { auth, requireRole } = require('../middleware/auth');
 const { ok, ApiError } = require('../utils/response');
 
@@ -44,6 +46,20 @@ router.put('/:id', auth, requireRole('guru', 'admin'), async (req, res, next) =>
 
 router.delete('/:id', auth, requireRole('guru', 'admin'), async (req, res, next) => {
   try {
+    // Materi.mapel adalah referensi database sungguhan (bukan sekadar teks) - mapel yang masih
+    // dipakai TIDAK BOLEH dihapus, karena akan membuat materi-materi itu jadi yatim piatu
+    // (menunjuk ke mapel yang sudah tidak ada) tanpa peringatan apa pun.
+    const [jumlahMateri, jumlahBankMateri] = await Promise.all([
+      Materi.countDocuments({ mapel: req.params.id }),
+      BankMateri.countDocuments({ mapel: req.params.id }),
+    ]);
+    if (jumlahMateri > 0 || jumlahBankMateri > 0) {
+      throw new ApiError(
+        `Mata pelajaran ini masih dipakai oleh ${jumlahMateri} materi dan ${jumlahBankMateri} bank materi. Hapus atau pindahkan materi tersebut dulu.`,
+        409
+      );
+    }
+
     const mapel = await Mapel.findByIdAndDelete(req.params.id);
     if (!mapel) throw new ApiError('Mata pelajaran tidak ditemukan', 404);
     return ok(res, null, 'Mata pelajaran berhasil dihapus');

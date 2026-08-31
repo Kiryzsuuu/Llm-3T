@@ -216,7 +216,7 @@ export default function GuruSoal() {
           {materiList.length === 0 && <option value="">Belum ada materi</option>}
           {materiList.map((m) => (
             <option key={m._id} value={m._id}>
-              {m.judul} — {m.mapel} Kelas {m.kelas}
+              {m.judul} — {m.mapel?.nama} Kelas {m.kelas}
             </option>
           ))}
         </select>

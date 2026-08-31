@@ -6,7 +6,7 @@ const mongoose = require('mongoose');
 const bankMateriSchema = new mongoose.Schema(
   {
     judul: { type: String, required: true, trim: true },
-    mapel: { type: String, required: true, trim: true },
+    mapel: { type: mongoose.Schema.Types.ObjectId, ref: 'Mapel', required: true },
     jenjang: { type: String, enum: ['SD', 'SMP', 'SMA'], required: true },
     bab: { type: String, trim: true },
     konten: { type: String, required: true },

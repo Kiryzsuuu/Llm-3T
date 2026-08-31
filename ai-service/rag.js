@@ -79,6 +79,13 @@ const STOPWORD = new Set([
   'di', 'ke', 'yang', 'dan', 'atau', 'untuk', 'dari', 'pada', 'adalah', 'itu', 'ini',
   'kamu', 'aku', 'saya', 'kita', 'kami', 'bisa', 'akan', 'dengan', 'ada', 'tidak', 'juga',
   'saja', 'sih', 'dong', 'coba', 'sebuah', 'suatu', 'para', 'oleh',
+  // Kata penghubung waktu/generik - terbukti dari pengujian (dataset 8 buku SD asli) muncul di
+  // hampir semua konteks apa pun topiknya, sehingga kalau tidak difilter bisa meloloskan chunk
+  // yang sama sekali tidak relevan lewat gerbang kata kunci hanya karena kebetulan sama-sama
+  // memuat kata generik ini (mis. "saat" muncul di teks tentang pseudocode maupun tentang pilek,
+  // tidak ada hubungannya dengan pertanyaan sungguhan).
+  'saat', 'ketika', 'sekarang', 'sedang', 'sering', 'selalu', 'pernah', 'tadi', 'nanti',
+  'dulu', 'kini', 'lalu', 'setelah', 'sebelum', 'saja', 'masih', 'sudah', 'belum', 'sambil',
 ]);
 
 function ambilKataKunci(teks) {
@@ -93,16 +100,21 @@ function ambilKataKunci(teks) {
 // nomic-embed-text punya "baseline" kemiripan yang cukup tinggi antar kalimat Bahasa Indonesia
 // apapun topiknya — beberapa chunk (terutama kalimat pembuka yang generik) bisa tampak mirip
 // secara cosine similarity dengan pertanyaan yang SAMA SEKALI tidak berkaitan (mis. "siapa
-// presiden Amerika?" vs materi Pancasila). Kalau tidak ada satu pun kata kunci pertanyaan yang
-// muncul di salah satu chunk teratas, anggap tidak relevan meski skor cosine-nya tinggi.
+// presiden Amerika?" vs materi Pancasila).
+//
+// PENTING: cuma cek chunk PALING ATAS (dokumen[0]), bukan "ada di salah satu dari 4 chunk manapun"
+// seperti sebelumnya. Terbukti dari pengujian dengan vector store besar (7900+ chunk dari 8 buku
+// asli): begitu jumlah & keragaman chunk banyak, kata kunci generik apa pun (mis. "saat") hampir
+// selalu nyangkut di SALAH SATU dari 4 chunk secara kebetulan, walau chunk TERATAS (yang benar-benar
+// menentukan skor confidence lewat hitungConfidence) sama sekali tidak relevan — meloloskan
+// pertanyaan di luar cakupan seperti "siapa presiden Amerika Serikat saat ini?" secara tidak sengaja.
 function adaKecocokanKataKunci(pertanyaan, dokumen) {
   const kataKunci = ambilKataKunci(pertanyaan);
   if (kataKunci.length === 0) return true; // pertanyaan terlalu pendek/generik untuk dicek, jangan blokir
+  if (dokumen.length === 0) return true;
 
-  return dokumen.some((teks) => {
-    const lower = teks.toLowerCase();
-    return kataKunci.some((k) => lower.includes(k));
-  });
+  const teratas = dokumen[0].toLowerCase();
+  return kataKunci.some((k) => teratas.includes(k));
 }
 
 // Deteksi rujukan urutan eksplisit di pertanyaan (mis. "sila ke-2", "pasal ke-3") dan PERSEMPIT
@@ -130,6 +142,29 @@ function prioritaskanOrdinal(dokumen, metadatas, pertanyaan) {
   return { dokumen: [dokumen[idx]], metadatas: [metadatas[idx]] };
 }
 
+// Kalau SEMUA chunk yang ter-retrieve pendek DAN tidak ada satupun yang berupa kalimat lengkap
+// (ada tanda baca akhir kalimat), itu tandanya chunk-nya cuma judul/label topik (mis. dari daftar
+// tujuan pembelajaran di awal bab) - BUKAN penjelasan sungguhan. Dari pengujian dengan buku
+// Kemendikdasmen asli: model kecil (Qwen2.5:1.5b) terbukti nekat MENGARANG jawaban lengkap dari
+// pengetahuan umumnya sendiri saat ini terjadi, alih-alih jujur bilang materinya belum cukup -
+// jadi ditolak deterministik di level kode, jangan mengandalkan model menahan diri sendiri.
+const PANJANG_MINIMAL_PENJELASAN = 100;
+
+function adaKalimatLengkap(dokumen) {
+  return dokumen.some((d) => {
+    const tanpaPrefix = d.trim().replace(/^[a-z0-9]{1,3}[.)]\s*/i, '');
+    // Buang titik/koma ribuan dalam angka (mis. "10.000", "1.500") supaya tidak salah dianggap
+    // tanda titik akhir kalimat - umum banget di buku Matematika/IPAS.
+    const tanpaAngka = tanpaPrefix.replace(/\d[.,]\d/g, '00');
+    return /[.!?]/.test(tanpaAngka);
+  });
+}
+
+function hanyaLabelTanpaPenjelasan(dokumen) {
+  const terpanjang = Math.max(0, ...dokumen.map((d) => d.trim().length));
+  return terpanjang < PANJANG_MINIMAL_PENJELASAN && !adaKalimatLengkap(dokumen);
+}
+
 async function retrieveContext(pertanyaan, filter = {}) {
   const { materi_id } = filter;
   const where = materi_id ? { materi_id: String(materi_id) } : undefined;
@@ -142,6 +177,10 @@ async function retrieveContext(pertanyaan, filter = {}) {
   const konteks = dokumen.map((d, i) => `[Sumber ${i + 1}]\n${d}`).join('\n\n');
 
   if (dokumen.length > 0 && !adaKecocokanKataKunci(pertanyaan, dokumen)) {
+    confidence = 0;
+  }
+
+  if (dokumen.length > 0 && hanyaLabelTanpaPenjelasan(dokumen)) {
     confidence = 0;
   }
 

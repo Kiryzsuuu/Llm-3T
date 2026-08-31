@@ -31,10 +31,10 @@ export default function MuridMateri() {
     load();
   }, []);
 
-  const mapelList = useMemo(() => ['semua', ...new Set(materi.map((m) => m.mapel))], [materi]);
+  const mapelList = useMemo(() => ['semua', ...new Set(materi.map((m) => m.mapel?.nama).filter(Boolean))], [materi]);
 
   const materiTampil = materi.filter((m) => {
-    const cocokMapel = mapelAktif === 'semua' || m.mapel === mapelAktif;
+    const cocokMapel = mapelAktif === 'semua' || m.mapel?.nama === mapelAktif;
     const cocokCari = !cari || m.judul.toLowerCase().includes(cari.toLowerCase());
     return cocokMapel && cocokCari;
   });
@@ -73,7 +73,7 @@ export default function MuridMateri() {
       ) : (
         <div>
           {materiTampil.map((m) => {
-            const { icon, warna } = gayaMapel(m.mapel);
+            const { icon, warna } = gayaMapel(m.mapel?.nama);
             const offline = offlineIds.has(m._id);
             return (
               <div
@@ -96,7 +96,7 @@ export default function MuridMateri() {
                       )}
                     </div>
                     <div className="row-sub">
-                      {m.mapel} · {m.jenjang} · Kelas {m.kelas}
+                      {m.mapel?.nama} · {m.jenjang} · Kelas {m.kelas}
                       {m.bab ? ` · ${m.bab}` : ''}
                     </div>
                   </div>

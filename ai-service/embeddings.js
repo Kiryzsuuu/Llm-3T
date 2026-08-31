@@ -44,6 +44,13 @@ function cosineSimilarity(a, b) {
 // ditanya "sila ke-2" model bisa salah ambil/menjawab sila lain dari chunk campuran yang sama.
 const POLA_AWAL_POIN = /^(\d+[.)]\s|[a-z][.)]\s|[-•*]\s|sila\s+ke[- ]?\d|pasal\s+\d|bab\s+[ivxlcdm\d]+\b)/i;
 
+// Baris "leader titik" ala daftar isi (mis. "Bab 1 ..................... 16") murni artefak
+// ekstraksi PDF, tidak ada nilai informasi apa pun - tapi terbukti dari pengujian bisa MENGALAHKAN
+// chunk penjelasan asli di similarity ranking, karena kebetulan menyebut judul topik yang sama
+// persis dengan pertanyaan siswa (padahal isinya cuma nomor halaman). Buang total saat chunking
+// supaya tidak pernah ikut ter-index dan meracuni retrieval.
+const POLA_LEADER_TITIK_DAFTAR_ISI = /\.{4,}/;
+
 function pisahkanPoinList(teks) {
   const baris = teks.split('\n');
   const hasil = [];
@@ -110,7 +117,7 @@ function chunkText(text, chunkSize = 500) {
 
   if (current) chunks.push(current);
 
-  return chunks.filter((c) => c.length > 0);
+  return chunks.filter((c) => c.length > 0 && !POLA_LEADER_TITIK_DAFTAR_ISI.test(c));
 }
 
 async function extractTextFromFile(filePath) {
@@ -187,6 +194,25 @@ async function addDocument({ id, text, metadata }) {
   saveStore(items);
 }
 
+// Versi batch dari addDocument: satu materi bisa punya ratusan/ribuan chunk (buku utuh), dan
+// addDocument membaca+menulis ULANG SELURUH file vector-store.json (yang terus membesar) di
+// SETIAP chunk - kalau dipanggil satu-satu dalam loop, ini jadi O(n^2) dan lambat drastis begitu
+// vector store sudah berisi ribuan chunk (dari pengujian: upload buku ke-5 makan waktu lebih dari
+// 5 menit sampai timeout klien, padahal buku pertama cuma ~2 menit). Fungsi ini load & save file
+// SEKALI SAJA untuk seluruh batch, bukan per chunk - embedding tetap dibuat satu-satu (sequential)
+// supaya tidak membanjiri Ollama dengan request paralel.
+async function addDocuments(docs) {
+  const idsBaru = new Set(docs.map((d) => String(d.id)));
+  const items = loadStore().filter((item) => !idsBaru.has(item.id));
+
+  for (const d of docs) {
+    const embedding = await generateEmbedding(d.text, 'document');
+    items.push({ id: String(d.id), text: d.text, embedding, metadata: d.metadata || {} });
+  }
+
+  saveStore(items);
+}
+
 function hapusDocumentByMateriId(materiId) {
   const items = loadStore().filter((item) => item.metadata?.materi_id !== String(materiId));
   saveStore(items);
@@ -234,6 +260,7 @@ module.exports = {
   extractTextFromFile,
   getCollectionStats,
   addDocument,
+  addDocuments,
   hapusDocumentByMateriId,
   queryDocuments,
 };

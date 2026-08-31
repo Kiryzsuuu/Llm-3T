@@ -134,7 +134,7 @@ export default function MuridDashboard() {
             <div className="lanjut-kicker">Lanjutkan belajar</div>
             <div className="lanjut-t">{materiLanjutan.judul}</div>
             <div className="lanjut-s">
-              {materiLanjutan.mapel} · {materiLanjutan.bab || `Kelas ${materiLanjutan.kelas}`}
+              {materiLanjutan.mapel?.nama} · {materiLanjutan.bab || `Kelas ${materiLanjutan.kelas}`}
             </div>
           </div>
           <button className="btn" onClick={() => navigate(`/murid/materi/${materiLanjutan._id}`)}>
