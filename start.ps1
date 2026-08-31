@@ -53,6 +53,25 @@ $modelList = ollama list 2>&1 | Out-String
 if ($modelList -match "edunusa") {
   Write-Ok "Model 'edunusa' sudah ada"
 } else {
+  # Kalau Modelfile-nya sudah dipasangi hasil fine-tuning (FROM ./nama-file.gguf, bukan nama model
+  # dari registry Ollama), file .gguf itu WAJIB ada duluan di folder edunusa-model/ - file ini besar
+  # (~1GB) dan sengaja tidak ikut git, jadi harus disalin manual tiap pindah PC (mis. dari backup
+  # Google Drive). Tanpa cek ini, "ollama create" akan gagal dengan error yang membingungkan.
+  $modelfileIsi = Get-Content "edunusa-model\Modelfile" -Raw
+  $cocokGguf = [regex]::Match($modelfileIsi, '(?m)^FROM\s+\.[/\\](.+\.gguf)\s*$')
+  if ($cocokGguf.Success) {
+    $namaFileGguf = $cocokGguf.Groups[1].Value.Trim()
+    $pathGguf = Join-Path $ROOT "edunusa-model\$namaFileGguf"
+    if (-not (Test-Path $pathGguf)) {
+      Write-Host "`nModelfile menunjuk ke hasil fine-tuning '$namaFileGguf', tapi file itu belum ada di PC ini." -ForegroundColor Red
+      Write-Host "Salin file itu dari backup kamu (mis. Google Drive) ke folder:" -ForegroundColor Yellow
+      Write-Host "  $pathGguf" -ForegroundColor Yellow
+      Write-Host "Lalu jalankan skrip ini lagi." -ForegroundColor Yellow
+      Read-Host "Tekan Enter untuk menutup"
+      exit 1
+    }
+  }
+
   Write-Warn2 "Membangun model EduNusa (menarik base model qwen2.5:1.5b dulu bila perlu, butuh internet)..."
   $bash = "C:\Program Files\Git\bin\bash.exe"
   if (Test-Path $bash) {
