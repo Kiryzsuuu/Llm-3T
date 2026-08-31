@@ -3,7 +3,7 @@
 # request (yang menimpa SYSTEM ini) dari edunusa-model/system-prompt.js — termasuk seluruh aturan
 # alur Socratic. Untuk mengubah perilaku EduNusa di aplikasi, edit system-prompt.js, BUKAN file ini.
 
-FROM qwen2.5:1.5b
+FROM ./edunusa-finetuned.gguf
 
 SYSTEM """
 Kamu adalah EduNusa, asisten belajar AI resmi platform EduNusa yang dikembangkan oleh tim EduNusa

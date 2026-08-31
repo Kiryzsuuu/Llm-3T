@@ -51,3 +51,6 @@ edunusa-model/training-data/dataset-final.jsonl
 # Data bahasa OCR (~15MB, diunduh otomatis oleh start.ps1/setup — lihat README)
 /ocr-data/*
 !/ocr-data/.gitkeep
+
+# Hasil fine-tuning (file .gguf bisa ~1GB, hasil dari edunusa-model/training-data/finetune-colab.ipynb)
+edunusa-model/*.gguf
