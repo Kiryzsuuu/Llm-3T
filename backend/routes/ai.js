@@ -52,7 +52,7 @@ async function catatAiLog({ muridId, pertanyaan, jawaban, materiId, responseTime
 // TIDAK mengandalkan LLM menebak sendiri sedang di tahap mana.
 router.post('/tanya', auth, async (req, res, next) => {
   try {
-    const { pertanyaan, materi_id, jenjang, sesi_id } = req.body;
+    const { pertanyaan, materi_id, mapel, jenjang, sesi_id } = req.body;
     if (!pertanyaan) {
       throw new ApiError('Pertanyaan wajib diisi', 400);
     }
@@ -91,7 +91,7 @@ router.post('/tanya', auth, async (req, res, next) => {
       if (jawabanSmallTalk) {
         hasil = { jawaban: jawabanSmallTalk, sumber: [], smallTalk: true, tahap: null, sesi_id: null };
       } else {
-        const { dokumen, metadatas, confidence, konteks } = await retrieveContext(pertanyaan, { materi_id });
+        const { dokumen, metadatas, confidence, konteks } = await retrieveContext(pertanyaan, { materi_id, mapel });
 
         if (dokumen.length === 0 || confidence < AMBANG_RELEVAN) {
           // Uji batasan (DoD #3): materi tak ada -> jujur bilang belum tersedia, jangan mengarang.

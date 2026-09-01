@@ -167,8 +167,17 @@ function hanyaLabelTanpaPenjelasan(dokumen) {
 }
 
 async function retrieveContext(pertanyaan, filter = {}) {
-  const { materi_id } = filter;
-  const where = materi_id ? { materi_id: String(materi_id) } : undefined;
+  const { materi_id, mapel } = filter;
+  // Chat umum (dashboard, tanpa materi_id) bisa dikunci ke satu mapel lewat filter "mapel" -
+  // supaya retrieval tidak mencari ke SELURUH vector store lintas mapel begitu pertanyaannya
+  // ambigu (mis. "jelaskan tentang perkalian" bisa nyasar ke buku mapel lain yang kebetulan
+  // menyebut kata serupa). materi_id tetap prioritas kalau ada (mode per-materi yang sudah lebih
+  // spesifik dari mode per-mapel).
+  const where = materi_id
+    ? { materi_id: String(materi_id) }
+    : mapel
+      ? { mapel: String(mapel) }
+      : undefined;
 
   const hasil = await queryDocuments(pertanyaan, 4, where);
   const mentah = (hasil.documents && hasil.documents[0]) || [];
