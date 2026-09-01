@@ -19,6 +19,7 @@ const { toCsv } = require('../utils/csv');
 const AiLog = require('../models/AiLog');
 const AiSesi = require('../models/AiSesi');
 const Materi = require('../models/Materi');
+const Percakapan = require('../models/Percakapan');
 
 const router = express.Router();
 
@@ -46,13 +47,49 @@ async function catatAiLog({ muridId, pertanyaan, jawaban, materiId, responseTime
   }
 }
 
+// Fitur riwayat chat ala ChatGPT/Claude: satu Percakapan = satu thread penuh (bisa banyak putaran
+// tanya-jawab), berbeda dari AiSesi yang cuma melacak state SATU putaran Socratic yang sedang
+// berlangsung. Best-effort (bungkus try/catch) - kegagalan menyimpan riwayat TIDAK boleh
+// menggagalkan jawaban ke murid, sama seperti catatAiLog.
+async function simpanKePercakapan({ percakapanId, muridId, materiId, mapel, pertanyaan, hasil }) {
+  try {
+    let percakapan = percakapanId
+      ? await Percakapan.findOne({ _id: percakapanId, murid_id: muridId })
+      : null;
+
+    if (!percakapan) {
+      percakapan = await Percakapan.create({
+        murid_id: muridId,
+        materi_id: materiId || undefined,
+        mapel_terpilih: mapel || null,
+        judul: String(pertanyaan).slice(0, 60),
+      });
+    }
+
+    percakapan.pesan.push({
+      pertanyaan,
+      jawaban: hasil.jawaban,
+      tahap: hasil.tahap,
+      confidence: hasil.confidence,
+      sumber: hasil.sumber,
+      isJawabanSiswa: !!hasil.isJawabanSiswa,
+      sesi_id: hasil.sesi_id || undefined,
+    });
+    await percakapan.save();
+    return String(percakapan._id);
+  } catch (err) {
+    console.error('Gagal menyimpan ke percakapan:', err.message);
+    return percakapanId || null;
+  }
+}
+
 // Alur Socratic (lihat EDUNUSA_CATATAN_PERBAIKAN.md bagian 4.1, 4.2, 5, 6):
 // tanya -> EduNusa beri konteks + tanya balik (tanpa bocor jawaban) -> siswa coba jawab
 // -> EduNusa evaluasi jawaban siswa. Tahap disimpan eksplisit di MongoDB (AiSesi),
 // TIDAK mengandalkan LLM menebak sendiri sedang di tahap mana.
 router.post('/tanya', auth, async (req, res, next) => {
   try {
-    const { pertanyaan, materi_id, mapel, jenjang, sesi_id } = req.body;
+    const { pertanyaan, materi_id, mapel, jenjang, sesi_id, percakapan_id, dari_topik_saran } = req.body;
     if (!pertanyaan) {
       throw new ApiError('Pertanyaan wajib diisi', 400);
     }
@@ -83,6 +120,7 @@ router.post('/tanya', auth, async (req, res, next) => {
         confidence: sesiAktif.confidence,
         tahap: 'selesai',
         sesi_id: sesiAktif._id,
+        isJawabanSiswa: true,
       };
     } else {
       // Tahap 1: pertanyaan baru. Cek small-talk dulu, baru retrieval RAG.
@@ -91,7 +129,11 @@ router.post('/tanya', auth, async (req, res, next) => {
       if (jawabanSmallTalk) {
         hasil = { jawaban: jawabanSmallTalk, sumber: [], smallTalk: true, tahap: null, sesi_id: null };
       } else {
-        const { dokumen, metadatas, confidence, konteks } = await retrieveContext(pertanyaan, { materi_id, mapel });
+        const { dokumen, metadatas, confidence, konteks } = await retrieveContext(pertanyaan, {
+          materi_id,
+          mapel,
+          percayaTanpaGerbangKataKunci: !!dari_topik_saran,
+        });
 
         if (dokumen.length === 0 || confidence < AMBANG_RELEVAN) {
           // Uji batasan (DoD #3): materi tak ada -> jujur bilang belum tersedia, jangan mengarang.
@@ -128,6 +170,15 @@ router.post('/tanya', auth, async (req, res, next) => {
       jawaban: hasil.jawaban,
       materiId: materi_id,
       responseTime,
+    });
+
+    hasil.percakapan_id = await simpanKePercakapan({
+      percakapanId: percakapan_id,
+      muridId: req.user.id,
+      materiId: materi_id,
+      mapel,
+      pertanyaan,
+      hasil,
     });
 
     return ok(res, hasil, 'Jawaban EduNusa berhasil didapatkan');

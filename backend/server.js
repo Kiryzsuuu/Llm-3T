@@ -23,6 +23,7 @@ const materiRoutes = require('./routes/materi');
 const soalRoutes = require('./routes/soal');
 const progressRoutes = require('./routes/progress');
 const aiRoutes = require('./routes/ai');
+const percakapanRoutes = require('./routes/percakapan');
 
 const app = express();
 
@@ -47,6 +48,7 @@ app.use('/api/materi', materiRoutes);
 app.use('/api/soal', soalRoutes);
 app.use('/api/progress', progressRoutes);
 app.use('/api/ai', aiRoutes);
+app.use('/api/percakapan', percakapanRoutes);
 
 // Deployment sekolah 3T: satu proses backend melayani API sekaligus build frontend (frontend/dist),
 // jadi cukup 1 server & 1 port yang diakses semua device siswa lewat IP LAN — tanpa proses frontend
@@ -54,8 +56,26 @@ app.use('/api/ai', aiRoutes);
 // (mis. saat dev, pakai `npm run dev` yang menjalankan Vite dev server terpisah), bagian ini dilewati.
 const frontendDist = path.join(__dirname, '../frontend/dist');
 if (fs.existsSync(frontendDist)) {
-  app.use(express.static(frontendDist));
+  // File di frontend/dist/assets/ sudah punya nama ber-hash dari Vite (mis. index-D-Wilvsj.js) -
+  // isinya TIDAK PERNAH berubah untuk nama file yang sama, jadi aman di-cache lama/agresif. Tapi
+  // index.html sendiri (yang menunjuk ke nama file ber-hash itu) HARUS selalu diambil ulang setiap
+  // kali - kalau tidak, browser bisa terus memakai index.html lama yang menunjuk ke bundle lama
+  // walau server sudah di-redeploy dengan kode terbaru, dan cuma "sembuh" lewat hard refresh manual
+  // (Ctrl+Shift+R) yang memaksa lewati cache. Ini yang bikin perubahan kode terasa tidak langsung
+  // muncul di browser murid/guru padahal server sudah jalan dengan versi baru.
+  app.use(
+    express.static(frontendDist, {
+      setHeaders: (res, filePath) => {
+        if (filePath.endsWith('.html')) {
+          res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        } else if (filePath.includes(`${path.sep}assets${path.sep}`)) {
+          res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+        }
+      },
+    })
+  );
   app.get(/^(?!\/api).*/, (req, res) => {
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
     res.sendFile(path.join(frontendDist, 'index.html'));
   });
 }
