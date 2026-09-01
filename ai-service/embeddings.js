@@ -51,6 +51,25 @@ const POLA_AWAL_POIN = /^(\d+[.)]\s|[a-z][.)]\s|[-•*]\s|sila\s+ke[- ]?\d|pasal
 // supaya tidak pernah ikut ter-index dan meracuni retrieval.
 const POLA_LEADER_TITIK_DAFTAR_ISI = /\.{4,}/;
 
+// PDF asli mengulang judul sub-bagian (mis. "A. Pecahan dengan Pembilang Satu") sebagai running
+// header di SETIAP halaman sepanjang sub-bagian itu berlangsung, diikuti nomor halaman yang
+// berubah-ubah tiap halaman (mis. "...57" di satu halaman, "...92" di halaman lain jauh setelahnya)
+// - beda dari leader titik daftar isi (cuma muncul sekali di halaman daftar isi), ini berulang di
+// BANYAK halaman. Terbukti dari pengujian nyata (murid tanya "apa itu pecahan?" pada buku Matematika
+// yang tidak sempat kepecah per bab): baris pendek "A. Pecahan dengan pembilang satu 92" ini
+// mengalahkan skor similarity chunk penjelasan asli, membuat model dapat konteks campur aduk dan
+// menjawab ngawur. Dibuang di level baris (bukan cuma difilter per-chunk) supaya tidak mencemari
+// chunk manapun yang kebetulan tergabung dengannya. Wajib >=3 kata di antara huruf label dan angka
+// halaman di ekor, supaya baris pilihan ganda pendek (mis. "A. 20") TIDAK ikut kebuang.
+const POLA_JUDUL_DENGAN_NOMOR_HALAMAN = /^[A-Z]\.\s+\S+(?:\s+\S+){2,}\s+\d{1,4}$/;
+
+function buangJudulDenganNomorHalaman(teks) {
+  return teks
+    .split('\n')
+    .filter((baris) => !POLA_JUDUL_DENGAN_NOMOR_HALAMAN.test(baris.trim()))
+    .join('\n');
+}
+
 function pisahkanPoinList(teks) {
   const baris = teks.split('\n');
   const hasil = [];
@@ -70,7 +89,8 @@ function pisahkanPoinList(teks) {
 }
 
 function chunkText(text, chunkSize = 500) {
-  const bersih = pisahkanPoinList(text.replace(/\r\n/g, '\n').replace(/[ \t]+/g, ' ').trim());
+  const tanpaHeader = buangJudulDenganNomorHalaman(text.replace(/\r\n/g, '\n').replace(/[ \t]+/g, ' ').trim());
+  const bersih = pisahkanPoinList(tanpaHeader);
   const paragraf = bersih.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
 
   const chunks = [];

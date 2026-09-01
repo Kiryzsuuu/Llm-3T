@@ -27,26 +27,89 @@ const upload = multer({ storage });
 // (lihat komentar ingestMateri di bawah soal hirarki Mapel > Materi). Jadi file yang di-upload
 // (bukan konten yang diketik manual) otomatis dipecah per BAB kalau terdeteksi lebih dari satu -
 // tiap bab jadi materi tersendiri, semuanya tetap di bawah mapel/jenjang/kelas yang sama.
-const POLA_BAB = /^(bab\s+\S+|kegiatan\s+belajar\s+\S+|pembelajaran\s+\d+\b)/i;
+// PENTING: token setelah "bab"/"kegiatan belajar" WAJIB angka atau angka romawi, tidak boleh kata
+// bebas apapun (\S+) - kalimat biasa yang KEBETULAN diawali kata "bab" di tengah paragraf yang
+// terpotong PDF (mis. "bab tersebut dengan mata pelajaran lain...", "bab ini akan membahas...")
+// terbukti dari pengujian nyata ikut salah kedeteksi sebagai heading bab kalau tidak dibatasi begini.
+const POLA_BAB = /^(bab\s+(?:\d+|[ivxlcdm]+)\b|kegiatan\s+belajar\s+(?:\d+|[ivxlcdm]+)\b|pembelajaran\s+\d+\b)/i;
 const PANJANG_MINIMAL_BAB = 100;
+
+// Baris daftar isi (mis. "Bab 1 Diriku ..................................................... 31")
+// SECARA KEBETULAN cocok pola heading bab di atas (diawali "Bab <angka>"), tapi itu cuma entri
+// daftar isi dengan leader titik dan nomor halaman - bukan heading sungguhan. Sama seperti
+// POLA_LEADER_TITIK_DAFTAR_ISI di ai-service/embeddings.js, tapi dipakai di sini untuk MENOLAK
+// baris itu jadi pemicu bab baru sama sekali (bukan cuma dibuang saat chunking untuk RAG).
+const POLA_LEADER_TITIK_DAFTAR_ISI = /\.{4,}/;
+
+// PDF asli mengulang judul bab sebagai running header di SETIAP halaman (mis. "Bab 6 | Mengembara
+// di Jagat Raya 175" di satu halaman, "Bab 6 | Mengembara di Jagat Raya 177" di halaman berikutnya
+// - beda cuma nomor halaman di ekornya). Tanpa normalisasi ini, tiap pengulangan header dianggap
+// bab BARU, sehingga satu bab yang harusnya jadi SATU materi malah pecah jadi puluhan materi (satu
+// per halaman) - terbukti dari upload nyata (IPAS kelas VI jadi 180+ "materi" alih-alih ~6 bab).
+// Kuncinya diambil dari token nomor/kode bab saja ("bab 6"), buang judul deskriptif & nomor halaman
+// yang berubah-ubah tiap pengulangan.
+function normalisasiKunciBab(teks) {
+  const m = teks.match(/^(bab\s+(?:\d+|[ivxlcdm]+)\b|kegiatan\s+belajar\s+(?:\d+|[ivxlcdm]+)\b|pembelajaran\s+\d+)/i);
+  return (m ? m[1] : teks).toLowerCase().replace(/\s+/g, ' ').trim();
+}
+
+// Buku Guru berisi section "Kunci Jawaban" (jawaban langsung tiap soal) yang TIDAK boleh ikut
+// ter-index ke RAG - kalau murid tanya sesuatu yang kebetulan me-retrieve chunk ini, jawabannya
+// akan langsung terlihat lewat sitasi "sumber", merusak alur Socratic. Beda dari filter di
+// prepare-dataset.js (yang cuma cek baris PENDEK), di sini dicari di mana pun posisinya dalam
+// keseluruhan teks - terbukti dari pengujian nyata, tabel rubrik penilaian sering membuat frasa
+// "Kunci Jawaban" menyatu di TENGAH baris panjang (bukan baris pendek berdiri sendiri) akibat cara
+// pdf-parse mengekstrak tabel, sehingga gerbang "baris pendek" saja melewatkan banyak kasus nyata.
+const POLA_KUNCI_JAWABAN = /kunci\s+jawaban/i;
+
+function potongSebelumKunciJawaban(konten) {
+  const match = POLA_KUNCI_JAWABAN.exec(konten);
+  if (!match) return konten;
+  return konten.slice(0, match.index).trim();
+}
+
+// Baris heading asli kadang diikuti nomor halaman di ekornya pada baris yang SAMA (mis. "Bab II |
+// Gerak Tari 227") - beda dari heading pendek yang angkanya memang bagian dari nomor bab itu
+// sendiri (mis. "Bab 4", TIDAK boleh dipotong jadi "Bab"). Angka di ekor cuma dibuang kalau ada
+// teks huruf yang berarti di ANTARA penanda bab dan angka ekor itu (berarti dua angka total = satu
+// nomor bab + satu nomor halaman terpisah), bukan kalau cuma ada satu angka saja.
+function bersihkanNomorHalamanEkor(teks) {
+  const t = String(teks || '').trim();
+  const cocokAwal = t.match(/^(bab\s+(?:\d+|[ivxlcdm]+)\b|kegiatan\s+belajar\s+(?:\d+|[ivxlcdm]+)\b|pembelajaran\s+\d+)/i);
+  if (!cocokAwal) return t;
+  const sisa = t.slice(cocokAwal[0].length);
+  if (/[A-Za-z].*\d{1,4}$/.test(sisa)) {
+    return t.replace(/\s+\d{1,4}\s*$/, '').trim();
+  }
+  return t;
+}
 
 function pisahPerBab(teks) {
   const baris = teks.replace(/\r\n/g, '\n').split('\n');
   const bagian = [];
   let babSaatIni = null;
+  let kunciSaatIni = null;
   let isi = [];
 
   function simpanBagian() {
-    const konten = isi.join('\n').trim();
+    const konten = potongSebelumKunciJawaban(isi.join('\n').trim());
     if (konten.length > 0) bagian.push({ bab: babSaatIni, konten });
   }
 
   for (const b of baris) {
     const t = b.trim();
-    if (t.length > 0 && t.length < 100 && POLA_BAB.test(t)) {
+    const cocokHeading = t.length > 0 && t.length < 100 && POLA_BAB.test(t) && !POLA_LEADER_TITIK_DAFTAR_ISI.test(t);
+    const kunci = cocokHeading ? normalisasiKunciBab(t) : null;
+
+    if (kunci && kunci !== kunciSaatIni) {
       simpanBagian();
-      babSaatIni = t;
+      babSaatIni = bersihkanNomorHalamanEkor(t);
+      kunciSaatIni = kunci;
       isi = [];
+    } else if (kunci) {
+      // Pengulangan running header bab yang sama persis - lewati barisnya, jangan dianggap bab
+      // baru maupun ikut ditambahkan ke isi (supaya isi tidak dipenuhi teks header berulang).
+      continue;
     } else {
       isi.push(b);
     }
@@ -194,13 +257,31 @@ router.post('/', auth, requireRole('guru', 'admin'), upload.single('file'), asyn
       );
     }
 
+    // Kalau cuma 1 bab terdeteksi, pakai konten yang SUDAH dipotong dari pisahPerBab (bukan konten
+    // mentah) - supaya "Kunci Jawaban" tetap tersaring walau tidak sampai terpecah jadi banyak materi.
+    // Jalur "Tulis Materi Manual" (mode='manual') sengaja tidak ikut disaring - guru/admin di jalur
+    // itu mengetik/tempel sendiri dan bertanggung jawab atas isinya.
+    let kontenFinal =
+      babTerpisah.length === 1
+        ? babTerpisah[0].konten
+        : req.file && mode !== 'manual'
+          ? potongSebelumKunciJawaban(konten)
+          : konten;
+
+    if (!kontenFinal || !kontenFinal.trim()) {
+      throw new ApiError(
+        'Seluruh isi file ini terdeteksi sebagai bagian "Kunci Jawaban" - tidak ada konten aman yang bisa disimpan ke RAG.',
+        400
+      );
+    }
+
     let materi = await Materi.create({
       judul,
       mapel: mapelDoc._id,
       jenjang,
       kelas,
       bab: bab || babTerpisah[0]?.bab,
-      konten,
+      konten: kontenFinal,
       file_url: req.file ? `/uploads/${req.file.filename}` : undefined,
       dibuat_oleh: req.user.id,
     });

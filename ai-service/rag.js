@@ -87,6 +87,12 @@ const STOPWORD = new Set([
   // tidak ada hubungannya dengan pertanyaan sungguhan).
   'saat', 'ketika', 'sekarang', 'sedang', 'sering', 'selalu', 'pernah', 'tadi', 'nanti',
   'dulu', 'kini', 'lalu', 'setelah', 'sebelum', 'saja', 'masih', 'sudah', 'belum', 'sambil',
+  // Kata urutan/generik yang terbukti dari pengujian nyata (testing masif lintas mapel) meloloskan
+  // pertanyaan DI LUAR CAKUPAN lewat gerbang kata kunci - mis. "siapa presiden pertama Mesir Kuno?"
+  // lolos hanya karena kata "pertama" kebetulan muncul di banyak konten tak berkaitan (mis. "sila
+  // pertama", "langkah pertama"), padahal kata kunci sungguhannya ("presiden", "mesir", "kuno")
+  // sama sekali tidak ada di materi manapun.
+  'pertama', 'kedua', 'ketiga', 'terakhir', 'utama',
 ]);
 
 function ambilKataKunci(teks) {
@@ -167,7 +173,7 @@ function hanyaLabelTanpaPenjelasan(dokumen) {
 }
 
 async function retrieveContext(pertanyaan, filter = {}) {
-  const { materi_id, mapel } = filter;
+  const { materi_id, mapel, percayaTanpaGerbangKataKunci } = filter;
   // Chat umum (dashboard, tanpa materi_id) bisa dikunci ke satu mapel lewat filter "mapel" -
   // supaya retrieval tidak mencari ke SELURUH vector store lintas mapel begitu pertanyaannya
   // ambigu (mis. "jelaskan tentang perkalian" bisa nyasar ke buku mapel lain yang kebetulan
@@ -186,7 +192,14 @@ async function retrieveContext(pertanyaan, filter = {}) {
   let confidence = hitungConfidence(hasil);
   const konteks = dokumen.map((d, i) => `[Sumber ${i + 1}]\n${d}`).join('\n\n');
 
-  if (dokumen.length > 0 && !adaKecocokanKataKunci(pertanyaan, dokumen)) {
+  // Gerbang kata kunci dilewati KHUSUS saat pertanyaan berasal dari chip topik yang di-generate
+  // dari label materi asli (bukan diketik bebas oleh siswa) - mis. "Jelaskan tentang Bab 4" gagal
+  // lolos gerbang ini karena "bab" (3 huruf) & angka tidak dihitung kata kunci, dan konten aslinya
+  // wajar tidak literal menyebut kata "jelaskan"/"tentang". Terbukti dari pengujian nyata: banyak
+  // topik yang SUNGGUH ADA jadi salah dibilang "belum tersedia". Tetap AMAN dilewati di sini karena
+  // labelnya sendiri berasal dari metadata materi asli (bukan tebakan bebas), beda dari pertanyaan
+  // bebas siswa yang tetap wajib lewat gerbang ini untuk mencegah halusinasi di luar cakupan.
+  if (dokumen.length > 0 && !percayaTanpaGerbangKataKunci && !adaKecocokanKataKunci(pertanyaan, dokumen)) {
     confidence = 0;
   }
 
@@ -222,7 +235,14 @@ async function chatPertanyaanBaru({ pertanyaan, konteks, jenjang }) {
   // Temperature rendah di tahap ini supaya model lebih konsisten patuh pada aturan
   // "jangan bocorkan jawaban akhir" — pada model kecil (2B), temperature lebih tinggi
   // membuat kepatuhan pada instruksi ini jadi tidak konsisten antar percobaan.
-  const jawaban = await chat(messages, { temperature: 0.1 });
+  // num_predict jadi batas keras terakhir kalau model kecil terjebak pola pengulangan tanpa henti
+  // (terbukti dari pengujian nyata: pertanyaan "apa itu pecahan?" bisa membuat model mengulang
+  // "1/2 = 2/4 = 3/6 = ..." puluhan kali sebelum berhenti sendiri) - respons Socratic tahap ini
+  // selalu singkat (cuma konteks + tanya balik), jadi batas 400 token lebih dari cukup. CATATAN:
+  // repeat_penalty SENGAJA tidak dipakai - dari pengujian nyata pada model kecil ini, menaikkan
+  // repeat_penalty (dicoba 1.3) malah membuatnya terjebak mengulang SATU PARAGRAF UTUH secara literal
+  // (bukan mengurangi pengulangan), lebih buruk dari perilaku default.
+  const jawaban = await chat(messages, { temperature: 0.1, numPredict: 400 });
   return sensorTanggalBocor(jawaban, konteks);
 }
 
@@ -247,7 +267,7 @@ async function chatEvaluasiJawaban({ pertanyaanAsli, konteks, jawabanSiswa, jenj
         `Jawaban percobaan siswa: ${jawabanSiswa}`,
     },
   ];
-  return chat(messages);
+  return chat(messages, { numPredict: 400 });
 }
 
 async function generateSoal({ topik, materiId, jumlah = 5, tingkat_kesulitan = 'sedang' }) {

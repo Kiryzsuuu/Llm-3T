@@ -23,6 +23,12 @@ async function chat(prompt, options = {}) {
     stream: false,
     options: {
       temperature: options.temperature ?? 0.3,
+      // Dikirim eksplisit oleh pemanggil yang butuh (lihat chatPertanyaanBaru/chatEvaluasiJawaban
+      // di rag.js) - TIDAK diberi default global di sini supaya generate-soal (butuh keluaran JSON
+      // panjang untuk beberapa soal sekaligus) tidak ikut terpotong oleh num_predict yang dimaksudkan
+      // untuk mencegah model kecil terjebak pola pengulangan di respons Socratic yang jauh lebih pendek.
+      ...(options.repeatPenalty !== undefined ? { repeat_penalty: options.repeatPenalty } : {}),
+      ...(options.numPredict !== undefined ? { num_predict: options.numPredict } : {}),
       ...options.modelOptions,
     },
   });
