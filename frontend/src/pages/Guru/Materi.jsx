@@ -18,6 +18,7 @@ export default function GuruMateri() {
   const [file, setFile] = useState(null);
   const [sumberMateri, setSumberMateri] = useState('baru'); // 'baru' | 'bank'
   const [bankIdDipilih, setBankIdDipilih] = useState('');
+  const [infoPesan, setInfoPesan] = useState('');
 
   async function load(mapelUntukFilter) {
     if (!mapelUntukFilter) {
@@ -54,6 +55,7 @@ export default function GuruMateri() {
     setBankIdDipilih('');
     setShowForm(true);
     setError('');
+    setInfoPesan('');
   }
 
   function handlePilihDariBank(id) {
@@ -100,8 +102,18 @@ export default function GuruMateri() {
 
       if (editId) {
         await api.put(`/materi/${editId}`, payload);
+        setInfoPesan('');
       } else {
-        await api.post('/materi', payload);
+        // api.js meng-unwrap response.data jadi langsung isi "data" dari backend (lihat interceptor
+        // di utils/api.js) - kalau upload file berisi banyak bab, backend memecahnya jadi beberapa
+        // materi sekaligus (lihat pisahPerBab di backend/routes/materi.js) dan responsnya array,
+        // bukan satu objek materi seperti biasa. Tunjukkan itu supaya guru/admin tahu itu bukan gagal.
+        const { data } = await api.post('/materi', payload);
+        setInfoPesan(
+          Array.isArray(data)
+            ? `File ini berisi ${data.length} bab - otomatis dipecah jadi ${data.length} materi terpisah.`
+            : ''
+        );
       }
       setShowForm(false);
       load(mapelId);
@@ -274,6 +286,13 @@ export default function GuruMateri() {
           <i className="ti ti-plus" /> Tambah materi
         </button>
       </div>
+
+      {infoPesan && (
+        <div className="alert blue mb-3">
+          <i className="ti ti-info-circle" />
+          <div>{infoPesan}</div>
+        </div>
+      )}
 
       <div className="field" style={{ maxWidth: 360 }}>
         <label>Mata pelajaran</label>

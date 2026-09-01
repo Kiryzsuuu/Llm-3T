@@ -21,6 +21,43 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 
+// Buku yang di-upload biasanya berisi BANYAK bab/topik sekaligus, bukan satu topik tunggal - kalau
+// selalu disimpan sebagai SATU materi besar, tampilan "Kelola Materi" jadi kurang berguna (satu
+// baris mewakili seluruh buku), padahal hirarkinya seharusnya mata pelajaran -> materi PER TOPIK
+// (lihat komentar ingestMateri di bawah soal hirarki Mapel > Materi). Jadi file yang di-upload
+// (bukan konten yang diketik manual) otomatis dipecah per BAB kalau terdeteksi lebih dari satu -
+// tiap bab jadi materi tersendiri, semuanya tetap di bawah mapel/jenjang/kelas yang sama.
+const POLA_BAB = /^(bab\s+\S+|kegiatan\s+belajar\s+\S+|pembelajaran\s+\d+\b)/i;
+const PANJANG_MINIMAL_BAB = 100;
+
+function pisahPerBab(teks) {
+  const baris = teks.replace(/\r\n/g, '\n').split('\n');
+  const bagian = [];
+  let babSaatIni = null;
+  let isi = [];
+
+  function simpanBagian() {
+    const konten = isi.join('\n').trim();
+    if (konten.length > 0) bagian.push({ bab: babSaatIni, konten });
+  }
+
+  for (const b of baris) {
+    const t = b.trim();
+    if (t.length > 0 && t.length < 100 && POLA_BAB.test(t)) {
+      simpanBagian();
+      babSaatIni = t;
+      isi = [];
+    } else {
+      isi.push(b);
+    }
+  }
+  simpanBagian();
+
+  // Bagian sebelum bab pertama (mis. sampul/daftar isi) dan bab yang isinya terlalu tipis (mis.
+  // heading palsu yang kebetulan cocok pola) dibuang - tidak layak jadi materi tersendiri.
+  return bagian.filter((s) => s.bab && s.konten.length >= PANJANG_MINIMAL_BAB);
+}
+
 async function ambilKontenDariFile(file) {
   const ext = path.extname(file.originalname).toLowerCase();
   if (!EKSTENSI_DIDUKUNG.includes(ext)) {
@@ -109,12 +146,43 @@ router.post('/', auth, requireRole('guru', 'admin'), upload.single('file'), asyn
       throw new ApiError('Konten materi wajib diisi (tulis manual atau upload file PDF/TXT/DOCX/JPG/PNG)', 400);
     }
 
+    // Pemecahan otomatis HANYA untuk file yang di-upload (bukan konten yang diketik/tempel manual -
+    // itu sudah pasti dimaksudkan jadi satu materi tunggal oleh guru/admin yang mengetiknya).
+    const babTerpisah = req.file ? pisahPerBab(konten) : [];
+
+    if (babTerpisah.length > 1) {
+      const fileUrl = `/uploads/${req.file.filename}`;
+      const materiList = [];
+      for (const bagian of babTerpisah) {
+        let materiBab = await Materi.create({
+          judul: `${judul} — ${bagian.bab}`,
+          mapel: mapelDoc._id,
+          jenjang,
+          kelas,
+          bab: bagian.bab,
+          konten: bagian.konten,
+          file_url: fileUrl,
+          dibuat_oleh: req.user.id,
+        });
+        materiBab = await materiBab.populate('mapel', 'nama icon warna');
+        await ingestMateri(materiBab);
+        materiList.push(materiBab);
+      }
+
+      return ok(
+        res,
+        materiList,
+        `File ini berisi ${materiList.length} bab - otomatis dipecah jadi ${materiList.length} materi terpisah`,
+        201
+      );
+    }
+
     let materi = await Materi.create({
       judul,
       mapel: mapelDoc._id,
       jenjang,
       kelas,
-      bab,
+      bab: bab || babTerpisah[0]?.bab,
       konten,
       file_url: req.file ? `/uploads/${req.file.filename}` : undefined,
       dibuat_oleh: req.user.id,
