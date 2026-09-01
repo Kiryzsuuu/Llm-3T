@@ -58,6 +58,14 @@ function pisahPerBab(teks) {
   return bagian.filter((s) => s.bab && s.konten.length >= PANJANG_MINIMAL_BAB);
 }
 
+// Dipakai jalur "Upload Buku" di frontend, yang sengaja TIDAK meminta guru/admin mengetik judul -
+// mereka mengupload buku utuh, bukan mengarang judul satu topik (lihat juga pisahPerBab yang akan
+// menimpa judul ini per bab kalau lebih dari satu bab terdeteksi).
+function turunkanJudulDariNamaFile(namaFile) {
+  const base = path.basename(namaFile, path.extname(namaFile));
+  return base.replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
 async function ambilKontenDariFile(file) {
   const ext = path.extname(file.originalname).toLowerCase();
   if (!EKSTENSI_DIDUKUNG.includes(ext)) {
@@ -126,11 +134,16 @@ router.get('/:id', async (req, res, next) => {
 
 router.post('/', auth, requireRole('guru', 'admin'), upload.single('file'), async (req, res, next) => {
   try {
-    const { judul, mapel, jenjang, kelas, bab } = req.body;
+    const { judul: judulMentah, mapel, jenjang, kelas, bab, mode } = req.body;
     let { konten } = req.body;
 
-    if (!judul || !mapel || !jenjang || !kelas) {
-      throw new ApiError('judul, mapel, jenjang, dan kelas wajib diisi', 400);
+    if (!mapel || !jenjang || !kelas) {
+      throw new ApiError('mapel, jenjang, dan kelas wajib diisi', 400);
+    }
+    // Jalur "Upload Buku" di frontend sengaja tidak meminta judul (lihat turunkanJudulDariNamaFile) -
+    // judul cuma wajib diketik manual kalau tidak ada file untuk diturunkan namanya.
+    if (!judulMentah && !req.file) {
+      throw new ApiError('judul wajib diisi', 400);
     }
 
     const mapelDoc = await Mapel.findById(mapel).catch(() => null);
@@ -146,9 +159,13 @@ router.post('/', auth, requireRole('guru', 'admin'), upload.single('file'), asyn
       throw new ApiError('Konten materi wajib diisi (tulis manual atau upload file PDF/TXT/DOCX/JPG/PNG)', 400);
     }
 
-    // Pemecahan otomatis HANYA untuk file yang di-upload (bukan konten yang diketik/tempel manual -
-    // itu sudah pasti dimaksudkan jadi satu materi tunggal oleh guru/admin yang mengetiknya).
-    const babTerpisah = req.file ? pisahPerBab(konten) : [];
+    const judul = judulMentah && judulMentah.trim() ? judulMentah.trim() : turunkanJudulDariNamaFile(req.file.originalname);
+
+    // Pemecahan otomatis HANYA untuk jalur "Upload Buku" (req.file ADA dan mode BUKAN 'manual') -
+    // jalur "Tulis Materi Manual" mengirim mode='manual' secara eksplisit supaya, walau kebetulan
+    // isinya menyebut kata "bab" (mis. materi tunggal yang dijelaskan pakai file foto/scan), tidak
+    // ikut terpecah - guru/admin di jalur itu memang bermaksud membuat SATU materi saja.
+    const babTerpisah = req.file && mode !== 'manual' ? pisahPerBab(konten) : [];
 
     if (babTerpisah.length > 1) {
       const fileUrl = `/uploads/${req.file.filename}`;

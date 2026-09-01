@@ -19,6 +19,10 @@ export default function GuruMateri() {
   const [sumberMateri, setSumberMateri] = useState('baru'); // 'baru' | 'bank'
   const [bankIdDipilih, setBankIdDipilih] = useState('');
   const [infoPesan, setInfoPesan] = useState('');
+  // Dua jalur tambah materi yang sengaja dipisah supaya tidak membingungkan (lihat komentar
+  // handleTambahBuku): "buku" = upload satu file buku utuh yang otomatis dipecah per bab kalau
+  // terdeteksi lebih dari satu bab, "manual" = alur lama, ketik/tempel satu topik materi sendiri.
+  const [formMode, setFormMode] = useState('manual'); // 'buku' | 'manual'
 
   async function load(mapelUntukFilter) {
     if (!mapelUntukFilter) {
@@ -47,10 +51,27 @@ export default function GuruMateri() {
     load(mapelId);
   }, [mapelId]);
 
-  function handleTambahBaru() {
+  // "Upload Buku": mengunggah satu file buku UTUH (biasanya berisi banyak bab sekaligus) - guru/
+  // admin TIDAK perlu mengarang judul, karena backend otomatis memecahnya jadi beberapa materi
+  // (satu per bab yang terdeteksi) dan mengambil judul dari nama bab itu sendiri. Ini jalur yang
+  // dimaksud saat orang bilang "upload buku mata pelajaran".
+  function handleTambahBuku() {
     setForm({ ...FORM_KOSONG, mapel: mapelId });
     setFile(null);
     setEditId(null);
+    setFormMode('buku');
+    setShowForm(true);
+    setError('');
+    setInfoPesan('');
+  }
+
+  // "Tulis Materi Manual": alur lama - satu topik/materi kecil yang diketik/tempel sendiri
+  // (opsional dibantu ekstrak teks dari satu file), untuk kasus yang BUKAN upload buku utuh.
+  function handleTambahManual() {
+    setForm({ ...FORM_KOSONG, mapel: mapelId });
+    setFile(null);
+    setEditId(null);
+    setFormMode('manual');
     setSumberMateri('baru');
     setBankIdDipilih('');
     setShowForm(true);
@@ -70,6 +91,7 @@ export default function GuruMateri() {
     setForm({ judul: m.judul, mapel: m.mapel?._id || '', jenjang: m.jenjang, kelas: m.kelas, bab: m.bab || '', konten: m.konten });
     setFile(null);
     setEditId(m._id);
+    setFormMode('manual');
     setSumberMateri('baru');
     setBankIdDipilih('');
     setShowForm(true);
@@ -86,7 +108,11 @@ export default function GuruMateri() {
     e.preventDefault();
     setError('');
 
-    if (!file && !form.konten.trim()) {
+    if (formMode === 'buku' && !file) {
+      setError('Pilih file buku yang mau di-upload.');
+      return;
+    }
+    if (formMode === 'manual' && !file && !form.konten.trim()) {
       setError('Isi konten materi secara manual, atau upload file PDF/TXT/DOCX.');
       return;
     }
@@ -98,6 +124,9 @@ export default function GuruMateri() {
         payload = new FormData();
         Object.entries(form).forEach(([key, value]) => payload.append(key, value));
         payload.append('file', file);
+        // "manual" dikirim eksplisit supaya backend TIDAK mencoba memecah per bab walau isinya
+        // kebetulan menyebut kata "bab" - di jalur ini guru/admin memang bermaksud satu materi saja.
+        if (formMode === 'manual') payload.append('mode', 'manual');
       }
 
       if (editId) {
@@ -131,13 +160,20 @@ export default function GuruMateri() {
           <a onClick={() => setShowForm(false)} style={{ cursor: 'pointer' }}>
             Kelola materi
           </a>{' '}
-          · {editId ? 'Edit materi' : 'Tambah materi'}
+          · {editId ? 'Edit materi' : formMode === 'buku' ? 'Upload buku' : 'Tulis materi manual'}
         </div>
-        <div className="mb-4" style={{ fontSize: 18, fontWeight: 500 }}>
-          {editId ? 'Edit materi' : 'Tambah materi baru'}
+        <div className="mb-1" style={{ fontSize: 18, fontWeight: 500 }}>
+          {editId ? 'Edit materi' : formMode === 'buku' ? 'Upload buku mata pelajaran' : 'Tulis materi manual'}
         </div>
-
         {!editId && (
+          <div className="text-muted mb-4" style={{ fontSize: 13 }}>
+            {formMode === 'buku'
+              ? 'Upload satu file buku utuh - kalau isinya punya beberapa BAB, otomatis dipecah jadi beberapa materi terpisah.'
+              : 'Ketik/tempel satu topik materi sendiri, atau bantu ekstrak dari satu file (foto/scan/PDF halaman tunggal).'}
+          </div>
+        )}
+
+        {!editId && formMode === 'manual' && (
           <div className="field">
             <label>Sumber materi</label>
             <div className="chips" style={{ marginBottom: 8 }}>
@@ -178,16 +214,30 @@ export default function GuruMateri() {
         )}
 
         <form onSubmit={handleSubmit}>
-          <div className="field">
-            <label>Judul materi</label>
-            <input
-              type="text"
-              placeholder="mis. Sistem Pernapasan Manusia"
-              value={form.judul}
-              onChange={(e) => setForm({ ...form, judul: e.target.value })}
-              required
-            />
-          </div>
+          {(editId || formMode === 'manual') && (
+            <div className="field">
+              <label>Judul materi</label>
+              <input
+                type="text"
+                placeholder="mis. Sistem Pernapasan Manusia"
+                value={form.judul}
+                onChange={(e) => setForm({ ...form, judul: e.target.value })}
+                required
+              />
+            </div>
+          )}
+
+          {!editId && formMode === 'buku' && (
+            <div className="field">
+              <label>Nama buku (opsional)</label>
+              <input
+                type="text"
+                placeholder="Kosongkan untuk pakai nama file secara otomatis"
+                value={form.judul}
+                onChange={(e) => setForm({ ...form, judul: e.target.value })}
+              />
+            </div>
+          )}
 
           <div className="grid-2" style={{ gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
             <div className="field">
@@ -223,38 +273,48 @@ export default function GuruMateri() {
             </div>
           </div>
 
-          <div className="field">
-            <label>Bab (opsional)</label>
-            <input type="text" value={form.bab} onChange={(e) => setForm({ ...form, bab: e.target.value })} />
-          </div>
+          {(editId || formMode === 'manual') && (
+            <div className="field">
+              <label>Bab (opsional)</label>
+              <input type="text" value={form.bab} onChange={(e) => setForm({ ...form, bab: e.target.value })} />
+            </div>
+          )}
 
           <div className="field">
-            <label>Upload file materi (PDF, TXT, DOCX, atau foto/scan JPG/PNG)</label>
+            <label>
+              {formMode === 'buku' && !editId
+                ? 'Upload file buku (PDF, TXT, atau DOCX)'
+                : 'Upload file materi (PDF, TXT, DOCX, atau foto/scan JPG/PNG)'}
+            </label>
             <input
               type="file"
-              accept=".pdf,.txt,.docx,.jpg,.jpeg,.png"
+              accept={formMode === 'buku' && !editId ? '.pdf,.txt,.docx' : '.pdf,.txt,.docx,.jpg,.jpeg,.png'}
               onChange={(e) => setFile(e.target.files?.[0] || null)}
+              required={formMode === 'buku' && !editId}
             />
             {file && (
               <div className="text-muted mt-2" style={{ fontSize: 12 }}>
-                <i className="ti ti-file-check" /> {file.name} — konten akan diambil otomatis dari file ini.
+                <i className="ti ti-file-check" /> {file.name} — konten akan diambil otomatis dari file ini
+                {formMode === 'buku' && !editId ? ', dan dipecah per bab kalau terdeteksi lebih dari satu.' : '.'}
               </div>
             )}
           </div>
 
-          <div className="field">
-            <label>{file ? 'Konten materi (opsional, akan ditimpa isi file jika dikosongkan)' : 'Konten materi'}</label>
-            <textarea
-              rows={8}
-              placeholder={
-                file
-                  ? 'Kosongkan supaya konten diambil otomatis dari file yang di-upload...'
-                  : 'Tulis atau tempel isi materi di sini, atau upload file di atas...'
-              }
-              value={form.konten}
-              onChange={(e) => setForm({ ...form, konten: e.target.value })}
-            />
-          </div>
+          {(editId || formMode === 'manual') && (
+            <div className="field">
+              <label>{file ? 'Konten materi (opsional, akan ditimpa isi file jika dikosongkan)' : 'Konten materi'}</label>
+              <textarea
+                rows={8}
+                placeholder={
+                  file
+                    ? 'Kosongkan supaya konten diambil otomatis dari file yang di-upload...'
+                    : 'Tulis atau tempel isi materi di sini, atau upload file di atas...'
+                }
+                value={form.konten}
+                onChange={(e) => setForm({ ...form, konten: e.target.value })}
+              />
+            </div>
+          )}
 
           {error && (
             <div className="alert red mb-3">
@@ -282,9 +342,14 @@ export default function GuruMateri() {
         <div className="sec-title" style={{ fontSize: 17 }}>
           Kelola materi
         </div>
-        <button className="btn" onClick={handleTambahBaru} disabled={!mapelId}>
-          <i className="ti ti-plus" /> Tambah materi
-        </button>
+        <div className="flex gap-2">
+          <button className="btn ghost" onClick={handleTambahManual} disabled={!mapelId}>
+            <i className="ti ti-plus" /> Tulis Materi Manual
+          </button>
+          <button className="btn" onClick={handleTambahBuku} disabled={!mapelId}>
+            <i className="ti ti-upload" /> Upload Buku
+          </button>
+        </div>
       </div>
 
       {infoPesan && (
