@@ -21,12 +21,15 @@ const EKSTENSI_DIDUKUNG = ['.txt', '.pdf'];
 const UKURAN_CHUNK = 800; // karakter per bagian materi
 
 // Batas jumlah sampel "kurikulum" (pola jawab-langsung) per buku. Tanpa batas ini, 1 buku SD utuh
-// bisa menghasilkan 400-500+ sampel - dikali 8 buku jadi ribuan, membuat sampel kurikulum
+// bisa menghasilkan 400-500+ sampel - dikali puluhan buku jadi ribuan, membuat sampel kurikulum
 // membanjiri dataset (rasio ribuan:puluhan dibanding contoh Socratic). Karena training pada
 // dasarnya belajar dari POLA yang paling sering muncul, rasio timpang seperti itu berisiko
 // training malah memperkuat pola "tanya -> jawab langsung" alih-alih pola Socratic yang justru
 // mau diperkuat. Diambil merata dari seluruh buku (bukan cuma awal) supaya topiknya tetap beragam.
-const MAKS_SAMPEL_PER_FILE = 40;
+// Diturunkan dari 40 ke 15 setelah jumlah buku kurikulum bertambah banyak (8 -> 30 buku) supaya
+// rasio kurikulum:socratic tetap di kisaran yang sama seperti sebelumnya sudah tervalidasi bagus
+// hasil fine-tuning-nya (~1:3-4), bukan makin timpang seiring bertambahnya jumlah buku.
+const MAKS_SAMPEL_PER_FILE = 15;
 
 function ambilSampelMerata(daftar, maks) {
   if (daftar.length <= maks) return daftar;
@@ -60,7 +63,38 @@ async function ekstrakTeksDariFile(filePath) {
 
 // --- deteksi bab/bagian dari teks mentah ---
 
-const POLA_HEADING = /^(bab\s+\S+|BAB\s+\S+|kegiatan belajar\s+\S+|[0-9]+\.\s+.+|[A-Z]\.\s+.+)/;
+// "Kunci Jawaban" WAJIB dikenali sebagai judul section tersendiri (bukan cuma nomor/huruf biasa)
+// supaya bisa dipisah dan dibuang - buku Panduan Guru selalu punya section ini berisi jawaban
+// LANGSUNG untuk tiap nomor soal (mis. "21 x 4 = 84"). Kalau ikut ke-training apa adanya, model
+// berisiko belajar pola "jawab angka langsung" alih-alih Socratic. Lihat cariBagianJawabanLangsung().
+// PENTING: sengaja TIDAK pakai flag /i global - alternatif [A-Z] harus tetap case-sensitive
+// (cuma huruf kapital tunggal seperti "A. Membaca...", bukan huruf kecil "a." yang justru banyak
+// muncul sebagai sub-poin biasa di dalam teks, termasuk di dalam section jawaban itu sendiri).
+const POLA_HEADING = /^(bab\s+\S+|BAB\s+\S+|kegiatan belajar\s+\S+|[Kk]unci\s+[Jj]awaban\b|[0-9]+\.\s+.+|[A-Z]\.\s+.+)/;
+
+// Judul section yang isinya jawaban/kunci langsung (bukan penjelasan) - dibuang total dari dataset
+// training, TIDAK cuma untuk buku guru saja (jaga-jaga kalau pola serupa muncul di buku siswa juga).
+// TANPA anchor "^" di depan supaya tetap kena walau judulnya diawali penanda huruf/angka dulu
+// (mis. "A. Kunci Jawaban" - lolos dari pengujian pertama karena "A." bukan awalan "kunci").
+const POLA_JUDUL_JAWABAN_LANGSUNG = /kunci\s+jawaban/i;
+
+// Pengaman lapis kedua: banyak sub-judul "Kunci Jawaban" di buku Panduan Guru ditulis dengan
+// penanda huruf KECIL ("i. Kunci Jawaban", "b. Kunci Jawaban Benar-Salah") yang sengaja TIDAK
+// dikenali POLA_HEADING sebagai batas section baru (lihat komentar di atas POLA_HEADING - huruf
+// kecil dipakai luas untuk sub-poin biasa, jadi tidak bisa dijadikan penanda heading tanpa banyak
+// positif palsu). Akibatnya baris "Kunci Jawaban" dan isi jawaban setelahnya bisa nyangkut di
+// EKOR section sebelumnya (judul section itu sendiri tidak match POLA_JUDUL_JAWABAN_LANGSUNG,
+// jadi lolos dari filter buang-section). Makanya isi tiap section dipotong di sini pada baris
+// pertama yang menyebut "kunci jawaban", di mana pun posisinya - bukan cuma di judul.
+function potongSebelumKunciJawaban(isi) {
+  const baris = isi.split('\n');
+  const idx = baris.findIndex((b) => {
+    const t = b.trim();
+    return t.length > 0 && t.length < 120 && POLA_JUDUL_JAWABAN_LANGSUNG.test(t);
+  });
+  if (idx === -1) return isi;
+  return baris.slice(0, idx).join('\n').trim();
+}
 
 function pisahPerBagian(teks) {
   const baris = teks.replace(/\r\n/g, '\n').split('\n');
@@ -69,7 +103,7 @@ function pisahPerBagian(teks) {
   let isiSaatIni = [];
 
   function simpanBagian() {
-    const isi = isiSaatIni.join('\n').trim();
+    const isi = potongSebelumKunciJawaban(isiSaatIni.join('\n').trim());
     if (isi.length > 0) {
       bagianList.push({ judul: judulSaatIni, isi });
     }
@@ -94,7 +128,9 @@ function pisahPerBagian(teks) {
     for (let i = 0; i < teksBersih.length; i += UKURAN_CHUNK) {
       potongan.push(teksBersih.slice(i, i + UKURAN_CHUNK));
     }
-    return potongan.map((isi) => ({ judul: null, isi: isi.trim() })).filter((b) => b.isi.length > 0);
+    return potongan
+      .map((isi) => ({ judul: null, isi: potongSebelumKunciJawaban(isi.trim()) }))
+      .filter((b) => b.isi.length > 0);
   }
 
   // Pecah bagian yang terlalu panjang agar tetap ringkas untuk fine-tuning.
@@ -125,6 +161,8 @@ const POLA_MAPEL_DIKENAL = [
   [/^kka/i, 'Koding dan Kecerdasan Artifisial'],
   [/^pendidikan[_\s-]?pancasila/i, 'Pendidikan Pancasila'],
   [/^pjok/i, 'PJOK'],
+  [/^seni[_\s-]?tari/i, 'Seni Tari'],
+  [/^seni[_\s-]?teater/i, 'Seni Teater'],
 ];
 
 function tebakMapel(namaFile) {
@@ -176,15 +214,18 @@ async function main() {
     try {
       const teks = await ekstrakTeksDariFile(filePath);
       const mapel = tebakMapel(namaFile);
-      const bagianListPenuh = pisahPerBagian(teks);
+      const bagianMentah = pisahPerBagian(teks);
+      const jumlahDibuang = bagianMentah.filter((b) => b.judul && POLA_JUDUL_JAWABAN_LANGSUNG.test(b.judul)).length;
+      const bagianListPenuh = bagianMentah.filter((b) => !b.judul || !POLA_JUDUL_JAWABAN_LANGSUNG.test(b.judul));
       const bagianList = ambilSampelMerata(bagianListPenuh, MAKS_SAMPEL_PER_FILE);
 
       bagianList.forEach((bagian) => {
         samplesKurikulum.push(buatPasanganInstruksi(bagian, mapel));
       });
 
+      const infoDibuang = jumlahDibuang > 0 ? `, ${jumlahDibuang} bagian "Kunci Jawaban" dibuang` : '';
       console.log(
-        `  ✓ ${namaFile} -> ${bagianList.length} bagian dipakai (dari ${bagianListPenuh.length} total, mapel: ${mapel})`
+        `  ✓ ${namaFile} -> ${bagianList.length} bagian dipakai (dari ${bagianListPenuh.length} total${infoDibuang}, mapel: ${mapel})`
       );
     } catch (err) {
       console.error(`  ✗ Gagal memproses ${namaFile}: ${err.message}`);
@@ -225,7 +266,10 @@ async function main() {
   // Contoh Socratic digandakan beberapa kali supaya polanya cukup "terasa" berulang saat training
   // dibanding ribuan sampel kurikulum (pola jawab-langsung) - tanpa ini, sinyal Socratic yang cuma
   // belasan sampel berisiko tenggelam total dibanding ratusan sampel kurikulum per mapel.
-  const PENGALI_SOCRATIC = 3;
+  // Dinaikkan dari 3 ke 5 seiring MAKS_SAMPEL_PER_FILE diturunkan ke 15 (bukan sebaliknya) -
+  // supaya rasio Socratic:kurikulum tetap dekat ~1:3.7 yang sudah tervalidasi bagus, walau
+  // jumlah buku kurikulum sekarang jauh lebih banyak (30 buku, 15 mapel).
+  const PENGALI_SOCRATIC = 5;
   const samplesSocraticDigandakan = Array(PENGALI_SOCRATIC).fill(samplesSocratic).flat();
 
   const semuaSample = [...samplesIdentity, ...samplesSocraticDigandakan, ...samplesKurikulum];
