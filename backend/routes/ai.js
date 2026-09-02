@@ -6,6 +6,8 @@ const {
   PESAN_TIDAK_TAHU,
   AMBANG_RELEVAN,
   cekSmallTalk,
+  cekPernyataanMinat,
+  butuhModeSocratic,
   retrieveContext,
   chatPertanyaanBaru,
   chatEvaluasiJawaban,
@@ -123,11 +125,17 @@ router.post('/tanya', auth, async (req, res, next) => {
         isJawabanSiswa: true,
       };
     } else {
-      // Tahap 1: pertanyaan baru. Cek small-talk dulu, baru retrieval RAG.
+      // Tahap 1: pertanyaan baru. Cek small-talk dan pernyataan minat (mis. "aku mau nanya
+      // tentang X" - itu BUKAN pertanyaan spesifik, lihat cekPernyataanMinat) dulu sebelum
+      // retrieval RAG, supaya keduanya tidak dipaksa masuk alur Socratic yang butuh pertanyaan
+      // konkret untuk dievaluasi.
       const jawabanSmallTalk = cekSmallTalk(pertanyaan);
+      const jawabanMinat = !jawabanSmallTalk ? cekPernyataanMinat(pertanyaan) : null;
 
       if (jawabanSmallTalk) {
         hasil = { jawaban: jawabanSmallTalk, sumber: [], smallTalk: true, tahap: null, sesi_id: null };
+      } else if (jawabanMinat) {
+        hasil = { jawaban: jawabanMinat, sumber: [], tahap: null, sesi_id: null };
       } else {
         const { dokumen, metadatas, confidence, konteks } = await retrieveContext(pertanyaan, {
           materi_id,
@@ -139,25 +147,28 @@ router.post('/tanya', auth, async (req, res, next) => {
           // Uji batasan (DoD #3): materi tak ada -> jujur bilang belum tersedia, jangan mengarang.
           hasil = { jawaban: PESAN_TIDAK_TAHU, sumber: [], confidence, tahap: null, sesi_id: null };
         } else {
-          const jawaban = await chatPertanyaanBaru({ pertanyaan, konteks, jenjang });
+          // TIDAK SELALU harus Socratic - pertanyaan yang MEMINTA PENJELASAN LANGSUNG (mis. "apa
+          // itu X", "jelaskan X") dijawab langsung tanpa menahan jawaban/membuka sesi tunggu-jawaban;
+          // lihat komentar butuhModeSocratic() di ai-service/rag.js untuk alasan lengkapnya.
+          const modeSocratic = butuhModeSocratic(pertanyaan);
+          const jawaban = await chatPertanyaanBaru({ pertanyaan, konteks, jenjang, modeSocratic });
+          const sumber = dokumen.map((text, i) => ({ text, metadata: metadatas[i] || {} }));
 
-          const sesiBaru = await AiSesi.create({
-            murid_id: req.user.id,
-            materi_id: materi_id || undefined,
-            pertanyaan_asli: pertanyaan,
-            konteks,
-            jenjang,
-            confidence,
-            tahap: 'menunggu_jawaban_siswa',
-          });
+          if (modeSocratic) {
+            const sesiBaru = await AiSesi.create({
+              murid_id: req.user.id,
+              materi_id: materi_id || undefined,
+              pertanyaan_asli: pertanyaan,
+              konteks,
+              jenjang,
+              confidence,
+              tahap: 'menunggu_jawaban_siswa',
+            });
 
-          hasil = {
-            jawaban,
-            sumber: dokumen.map((text, i) => ({ text, metadata: metadatas[i] || {} })),
-            confidence,
-            tahap: 'menunggu_jawaban_siswa',
-            sesi_id: sesiBaru._id,
-          };
+            hasil = { jawaban, sumber, confidence, tahap: 'menunggu_jawaban_siswa', sesi_id: sesiBaru._id };
+          } else {
+            hasil = { jawaban, sumber, confidence, tahap: null, sesi_id: null };
+          }
         }
       }
     }

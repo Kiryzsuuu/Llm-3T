@@ -61,6 +61,37 @@ function cekSmallTalk(pertanyaan) {
   return cocok ? cocok.jawaban : null;
 }
 
+// "Aku mau nanya/belajar tentang X" itu PERNYATAAN MINAT topik, bukan pertanyaan spesifik - kalau
+// tetap dipaksa masuk alur Socratic penuh (retrieval + tanya-balik + tunggu-jawaban), modelnya
+// kebingungan karena tidak ada pertanyaan konkret untuk dievaluasi (terbukti dari pengujian nyata:
+// alurnya jadi kacau berputar-putar, sampai model menyuruh siswa "baca sumber 1" alih-alih
+// menjawab). Direspons deterministik di kode (TIDAK lewat LLM/RAG, TIDAK membuka sesi Socratic) -
+// giliran berikutnya siswa tetap bebas bertanya spesifik dan itu baru masuk alur normal.
+const POLA_PERNYATAAN_MINAT = /^(aku|saya|gue|gw)\s+(mau|ingin|pengen)\s+(nanya|tanya|belajar|tahu|mengetahui)\s+(tentang|soal|mengenai)\s+(.+)/i;
+
+function cekPernyataanMinat(pertanyaan) {
+  const cocok = String(pertanyaan || '').trim().match(POLA_PERNYATAAN_MINAT);
+  if (!cocok) return null;
+  const topik = cocok[5].trim().replace(/[.!?]+$/, '');
+  if (!topik) return null;
+  return `Oke, mau tahu apa soal **${topik}**? Coba tanya yang lebih spesifik ya, misalnya "apa itu ${topik}" atau "jelaskan ${topik}".`;
+}
+
+// Titik keputusan penting: TIDAK SELALU pertanyaan baru harus lewat alur Socratic (tahan jawaban +
+// tanya balik + tunggu siswa mencoba dulu) - per masukan eksplisit pengguna, itu bikin banyak
+// pertanyaan wajar (mis. "apa manfaat olahraga?", "jelaskan gotong royong") terasa berbelit-belit
+// dan tidak membantu kalau tetap dipaksa menebak dulu. DEFAULT SEKARANG LANGSUNG MENJELASKAN;
+// Socratic jadi PENGECUALIAN, dipertahankan KHUSUS untuk pertanyaan dengan SATU jawaban spesifik
+// yang layak ditebak - fakta/lambang/tanggal/angka/nama tunggal (mis. "apa lambang sila ke-3?",
+// "kapan Pancasila disahkan?", "berapa 7x8?", "siapa presiden pertama Indonesia?") - di situ
+// menebak dulu sungguh membantu pemahaman, beda dari sekadar minta dijelaskan/diuraikan.
+const POLA_FAKTA_TUNGGAL_SOCRATIC =
+  /^(apa\s+(lambang|arti|makna|bunyi|nama|singkatan)|kapan|berapa|siapa|di\s?mana|sila\s+ke|pasal\s+ke|ayat\s+ke)\b/i;
+
+function butuhModeSocratic(pertanyaan) {
+  return POLA_FAKTA_TUNGGAL_SOCRATIC.test(String(pertanyaan || '').trim());
+}
+
 // Confidence dihitung dari similarity chunk PALING relevan (top-1), bukan rata-rata seluruh chunk
 // yang di-retrieve. Alasan (Bug 3.2 di catatan perbaikan): merata-ratakan bisa "mengencerkan" skor
 // walau chunk teratas sebenarnya sangat cocok, hanya karena chunk ke-2/3 kurang relevan.
@@ -157,13 +188,33 @@ function prioritaskanOrdinal(dokumen, metadatas, pertanyaan) {
 // jadi ditolak deterministik di level kode, jangan mengandalkan model menahan diri sendiri.
 const PANJANG_MINIMAL_PENJELASAN = 100;
 
+// Chunk yang isinya SENDIRI berupa perintah/soal latihan (mis. "4. Jelaskan manfaat praktik gotong
+// royong di lingkungan masyarakat!" dari bagian "Uji Kompetensi"/"Ayo Berlatih") BUKAN penjelasan
+// sungguhan walau diakhiri tanda baca kalimat lengkap - tanpa pengecualian ini, chunk soal latihan
+// lolos gerbang "ada kalimat lengkap" dan model cuma menggemakan soalnya sendiri sebagai "jawaban"
+// alih-alih benar-benar menjelaskan (terbukti dari pengujian nyata: "jelaskan gotong royong" dijawab
+// "Jelaskan gotong royong!" - modelnya cuma mengulang chunk soal yang di-retrieve).
+// Flag "s" (dotAll) WAJIB - teks chunk dari PDF sering ada baris baru di tengah kalimat (mis.
+// "...lingkungan\nmasyarakat!"), dan "." di regex TIDAK otomatis cocok dengan baris baru tanpa flag
+// ini - tanpa "s", pola ini gagal cocok pada persis kasus yang dicoba ditangkap (sudah teruji nyata).
+const POLA_SOAL_LATIHAN = /^(jelaskan|sebutkan|tuliskan|ceritakan|diskusikan|uraikan|coba)\b.*[!?]$/is;
+
 function adaKalimatLengkap(dokumen) {
   return dokumen.some((d) => {
-    const tanpaPrefix = d.trim().replace(/^[a-z0-9]{1,3}[.)]\s*/i, '');
+    const tanpaPrefix = d.trim().replace(/^[a-z0-9]{1,3}[.)]\s*/i, '').replace(/\s+/g, ' ').trim();
+    if (POLA_SOAL_LATIHAN.test(tanpaPrefix)) return false;
     // Buang titik/koma ribuan dalam angka (mis. "10.000", "1.500") supaya tidak salah dianggap
     // tanda titik akhir kalimat - umum banget di buku Matematika/IPAS.
     const tanpaAngka = tanpaPrefix.replace(/\d[.,]\d/g, '00');
-    return /[.!?]/.test(tanpaAngka);
+    // Fragmen topik pendek dengan tanda tanya/seru menempel (mis. "gotong royong?", 2 kata) TIDAK
+    // boleh ikut lolos cuma karena ada tanda baca di ekornya - terbukti dari pengujian nyata (4
+    // chunk ter-retrieve semuanya cuma fragmen begini, membuat model mengulang salah satunya
+    // sebagai "jawaban"). Ambang 4 kata dipilih supaya tetap meloloskan kalimat pendek tapi
+    // sungguhan seperti fixture Pancasila ("Persatuan Indonesia, dilambangkan pohon beringin." -
+    // 5 kata, WAJIB tetap lolos, sempat kepotong keliru saat ambang ini masih 6) sambil tetap
+    // membuang fragmen 1-3 kata.
+    const jumlahKata = tanpaPrefix.split(/\s+/).filter(Boolean).length;
+    return /[.!?]/.test(tanpaAngka) && jumlahKata >= 4;
   });
 }
 
@@ -227,9 +278,40 @@ function sensorTanggalBocor(jawaban, konteks) {
   );
 }
 
-async function chatPertanyaanBaru({ pertanyaan, konteks, jenjang }) {
+// Model kecil kadang terjebak mengulang kalimat yang PERSIS SAMA berkali-kali sebelum num_predict
+// menghentikannya paksa di batas token (repeat_penalty terbukti dari pengujian nyata malah
+// memperparah pengulangan alih-alih menguranginya - lihat catatan di chatPertanyaanBaru, jadi
+// sengaja tidak dipakai). Dibersihkan di sini secara deterministik sebagai lapis terakhir: begitu
+// ada kalimat cukup panjang (>=20 karakter) yang sudah muncul sebelumnya di jawaban yang SAMA,
+// potong jawabannya dari situ - lebih baik jawaban lebih pendek tapi bersih daripada panjang
+// tapi mengulang-ulang kalimat yang sama.
+function potongJawabanBerulang(jawaban) {
+  const kalimat = jawaban.split(/(?<=[.!?])\s+/);
+  const terlihat = new Set();
+  const awalTerlihat = new Set();
+  const hasil = [];
+  for (const k of kalimat) {
+    const bersih = k.trim().toLowerCase().replace(/\s+/g, ' ');
+    if (bersih.length < 20) {
+      hasil.push(k);
+      continue;
+    }
+    // Cek juga 3 kata pertama, bukan cuma kalimat identik persis - model kecil kadang mengulang
+    // AWAL kalimat yang sama tapi lanjut dengan variasi angka/contoh berbeda (mis. rangkaian
+    // "Pecahan senilai itu..." berulang dengan pecahan berbeda tiap kali) - itu tetap gejala
+    // pola pengulangan yang sama, bukan penjelasan baru yang berarti.
+    const awal = bersih.split(' ').slice(0, 3).join(' ');
+    if (terlihat.has(bersih) || awalTerlihat.has(awal)) break;
+    terlihat.add(bersih);
+    awalTerlihat.add(awal);
+    hasil.push(k);
+  }
+  return hasil.join(' ').trim();
+}
+
+async function chatPertanyaanBaru({ pertanyaan, konteks, jenjang, modeSocratic = true }) {
   const messages = [
-    { role: 'system', content: buildSystemPrompt({ jenjang, tahap: 'pertanyaan_baru' }) },
+    { role: 'system', content: buildSystemPrompt({ jenjang, tahap: 'pertanyaan_baru', modeSocratic }) },
     { role: 'user', content: `Konteks materi:\n${konteks}\n\nPertanyaan siswa: ${pertanyaan}` },
   ];
   // Temperature rendah di tahap ini supaya model lebih konsisten patuh pada aturan
@@ -242,8 +324,10 @@ async function chatPertanyaanBaru({ pertanyaan, konteks, jenjang }) {
   // repeat_penalty SENGAJA tidak dipakai - dari pengujian nyata pada model kecil ini, menaikkan
   // repeat_penalty (dicoba 1.3) malah membuatnya terjebak mengulang SATU PARAGRAF UTUH secara literal
   // (bukan mengurangi pengulangan), lebih buruk dari perilaku default.
-  const jawaban = await chat(messages, { temperature: 0.1, numPredict: 400 });
-  return sensorTanggalBocor(jawaban, konteks);
+  const jawabanMentah = potongJawabanBerulang(await chat(messages, { temperature: 0.1, numPredict: 400 }));
+  // Sensor tanggal cuma relevan untuk mode Socratic (yang MEMANG sengaja menahan jawaban) - di
+  // mode langsung, tanggal/angka justru WAJIB muncul karena itu bagian dari penjelasan yang diminta.
+  return modeSocratic ? sensorTanggalBocor(jawabanMentah, konteks) : jawabanMentah;
 }
 
 async function chatEvaluasiJawaban({ pertanyaanAsli, konteks, jawabanSiswa, jenjang }) {
@@ -267,7 +351,7 @@ async function chatEvaluasiJawaban({ pertanyaanAsli, konteks, jawabanSiswa, jenj
         `Jawaban percobaan siswa: ${jawabanSiswa}`,
     },
   ];
-  return chat(messages, { numPredict: 400 });
+  return potongJawabanBerulang(await chat(messages, { numPredict: 400 }));
 }
 
 async function generateSoal({ topik, materiId, jumlah = 5, tingkat_kesulitan = 'sedang' }) {
@@ -349,6 +433,8 @@ module.exports = {
   PESAN_TIDAK_TAHU,
   AMBANG_RELEVAN,
   cekSmallTalk,
+  cekPernyataanMinat,
+  butuhModeSocratic,
   retrieveContext,
   chatPertanyaanBaru,
   chatEvaluasiJawaban,

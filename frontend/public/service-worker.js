@@ -1,4 +1,4 @@
-const CACHE_NAME = 'edunusa-cache-v1';
+const CACHE_NAME = 'edunusa-cache-v2';
 const APP_SHELL = [
   '/',
   '/index.html',
@@ -87,8 +87,21 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Static assets (HTML, CSS, JS, icons)
-  event.respondWith(cacheFirst(request));
+  // File di /assets/ dinamai Vite pakai hash isinya (mis. index-D-Wilvsj.js) - namanya SENDIRI
+  // berubah kalau isinya berubah, jadi aman di-cache agresif (cache-first).
+  if (url.pathname.startsWith('/assets/')) {
+    event.respondWith(cacheFirst(request));
+    return;
+  }
+
+  // Shell HTML (index.html, "/", dan semua route SPA seperti "/murid/dashboard" yang server-nya
+  // balas dengan index.html juga) - HARUS network-first, bukan cache-first. Sebelumnya semua
+  // static request (termasuk shell HTML ini) pakai cache-first, jadi begitu ada deploy baru,
+  // service worker tetap keras kepala menyajikan index.html LAMA dari cache-nya sendiri - tidak
+  // peduli header Cache-Control apa pun yang dikirim server - dan baru "sembuh" lewat hard
+  // refresh manual yang memaksa lewati service worker. Network-first di sini menjamin versi
+  // terbaru langsung terlihat begitu online, dan tetap fallback ke cache kalau offline.
+  event.respondWith(networkFirst(request));
 });
 
 self.addEventListener('sync', (event) => {

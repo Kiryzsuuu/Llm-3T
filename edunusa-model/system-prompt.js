@@ -19,7 +19,7 @@ const LEVEL_INSTRUKSI = {
 // Poin 2 (anti-campur-sumber) langsung menyasar Bug 3.1 di EDUNUSA_CATATAN_PERBAIKAN.md:
 // jawaban salah materi karena chunk yang di-retrieve berisi beberapa poin/sila/pasal sekaligus
 // dan model mencampur/salah pilih salah satunya.
-function buildSystemPrompt({ jenjang, tahap }) {
+function buildSystemPrompt({ jenjang, tahap, modeSocratic = true }) {
   const dasar =
     'Kamu adalah EduNusa, asisten belajar AI khusus untuk siswa SD (Sekolah Dasar) di daerah 3T ' +
     '(Terdepan, Terluar, Tertinggal), sesuai kurikulum Kemendikbud.\n\n' +
@@ -43,7 +43,22 @@ function buildSystemPrompt({ jenjang, tahap }) {
     );
   }
 
-  // tahap default: 'pertanyaan_baru'
+  // Mode langsung: siswa MEMINTA PENJELASAN (mis. "apa itu X", "jelaskan X"), bukan pertanyaan
+  // dengan satu jawaban spesifik untuk ditebak - menahan jawaban di sini cuma berbelit-belit dan
+  // tidak membantu. Diputuskan deterministik di kode lewat butuhModeSocratic() di ai-service/rag.js,
+  // BUKAN oleh model sendiri, supaya konsisten (lihat pemanggil buildSystemPrompt untuk detail pola).
+  if (tahap === 'pertanyaan_baru' && !modeSocratic) {
+    return (
+      dasar +
+      '\nATURAN TAHAP PENJELASAN LANGSUNG:\n' +
+      '- Siswa MEMINTA PENJELASAN, bukan pertanyaan dengan satu jawaban spesifik untuk ditebak dulu - jawab dengan JELAS dan LENGKAP berdasarkan konteks materi.\n' +
+      '- JANGAN menahan atau menyembunyikan bagian jawaban apa pun - ini bukan tahap Socratic.\n' +
+      '- Boleh tutup dengan satu pertanyaan ringan untuk mengecek pemahaman atau mengajak diskusi lebih lanjut, ' +
+      'tapi itu OPSIONAL - penjelasanmu sudah harus lengkap dan berguna tanpa pertanyaan itu.'
+    );
+  }
+
+  // tahap default: 'pertanyaan_baru' (mode Socratic)
   return (
     dasar +
     '\nATURAN TAHAP AWAL (SOCRATIC - WAJIB DIIKUTI):\n' +

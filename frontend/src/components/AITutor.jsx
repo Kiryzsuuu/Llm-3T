@@ -63,7 +63,10 @@ export default function AITutor({ materiId, jenjang, tagPembuka, saran = [] }) {
   const dukungRiwayat = modePilihMapel;
   const [daftarPercakapan, setDaftarPercakapan] = useState([]);
   const [percakapanId, setPercakapanId] = useState(null); // null = percakapan baru, belum tersimpan
-  const [sidebarTerbuka, setSidebarTerbuka] = useState(false);
+  // Default terbuka. Tombol tutup ada DI DALAM sidebar sendiri, tombol buka-lagi muncul di header
+  // widget begitu tertutup - pola yang sama seperti Claude/ChatGPT (bukan satu tombol toggle yang
+  // menetap di satu tempat).
+  const [sidebarTerbuka, setSidebarTerbuka] = useState(dukungRiwayat);
 
   // Chip saran yang mengikuti mapel yang sedang dibahas (bukan 3 contoh statis yang sama terus) -
   // diisi dari topik materi ASLI begitu mapel dipilih, lihat ambilTopikMapel/pilihMapel.
@@ -107,18 +110,27 @@ export default function AITutor({ materiId, jenjang, tagPembuka, saran = [] }) {
     };
   }, [modePilihMapel]);
 
-  async function muatDaftarPercakapan() {
+  async function muatDaftarPercakapan(pulihkanTerakhir) {
     if (!dukungRiwayat) return;
     try {
       const { data } = await api.get('/percakapan');
       setDaftarPercakapan(data);
+      // Begitu komponen ini dimuat ulang (refresh halaman, pindah lalu balik lagi), state React
+      // (riwayat, mapelTerpilih, dst) selalu kembali ke awal - percakapan yang sedang berlangsung
+      // TIDAK otomatis dipulihkan sebelum ini, jadi selalu kembali ke layar pemilihan mapel walau
+      // sebenarnya masih ada percakapan aktif tersimpan. Di sini, kalau belum ada percakapan aktif
+      // sama sekali (percakapanId null - murni saat mount pertama, BUKAN setelah user sengaja
+      // klik "Percakapan Baru"), otomatis lanjutkan percakapan PALING BARU alih-alih mulai kosong.
+      if (pulihkanTerakhir && data.length > 0) {
+        muatPercakapan(data[0]._id);
+      }
     } catch (err) {
       // Riwayat gagal dimuat (mis. offline) bukan alasan untuk mem-blokir chat itu sendiri.
     }
   }
 
   useEffect(() => {
-    muatDaftarPercakapan();
+    muatDaftarPercakapan(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dukungRiwayat]);
 
@@ -150,7 +162,6 @@ export default function AITutor({ materiId, jenjang, tagPembuka, saran = [] }) {
       );
 
       setError('');
-      setSidebarTerbuka(false);
     } catch (err) {
       setError('Gagal memuat percakapan ini.');
     }
@@ -163,7 +174,6 @@ export default function AITutor({ materiId, jenjang, tagPembuka, saran = [] }) {
     setError('');
     setMapelTerpilih(null);
     setPesanPicker(PESAN_TANYA_MAPEL);
-    setSidebarTerbuka(false);
     setSaranAdaptif([]);
   }
 
@@ -191,6 +201,7 @@ export default function AITutor({ materiId, jenjang, tagPembuka, saran = [] }) {
       await api.delete(`/percakapan/${id}`);
       setDaftarPercakapan((prev) => prev.filter((p) => p._id !== id));
       if (id === percakapanId) percakapanBaru();
+       
     } catch (err) {
       // Diamkan - item tetap ada di daftar kalau hapus gagal, murid bisa coba lagi.
     }
@@ -318,17 +329,22 @@ export default function AITutor({ materiId, jenjang, tagPembuka, saran = [] }) {
 
   return (
     <div className="edunusa">
+      {dukungRiwayat && !sidebarTerbuka && (
+        // Posisinya MENGIKUTI SIDEBAR (position:fixed di tepi kiri layar), BUKAN ikut posisi
+        // widget AITutor ini di tengah halaman - kalau ditaruh di dalam .edu-head, tombolnya akan
+        // muncul di manapun widget ini berada di halaman (mis. di bawah kartu statistik dashboard),
+        // bukan konsisten menempel di sisi kiri layar seperti sidebar-nya sendiri.
+        <button
+          type="button"
+          className="edu-sidebar-toggle-fixed"
+          onClick={() => setSidebarTerbuka(true)}
+          aria-label="Tampilkan riwayat percakapan"
+        >
+          <i className="ti ti-layout-sidebar" />
+        </button>
+      )}
+
       <div className="edu-head">
-        {dukungRiwayat && (
-          <button
-            type="button"
-            className="edu-sidebar-toggle"
-            onClick={() => setSidebarTerbuka((v) => !v)}
-            aria-label="Tampilkan/sembunyikan riwayat percakapan"
-          >
-            <i className="ti ti-layout-sidebar" />
-          </button>
-        )}
         <div className="edu-logo">
           <i className="ti ti-sparkles" />
         </div>
@@ -345,15 +361,21 @@ export default function AITutor({ materiId, jenjang, tagPembuka, saran = [] }) {
       </div>
 
       <div className="edu-layout">
-        {dukungRiwayat && sidebarTerbuka && (
-          <div className="edu-sidebar-backdrop" onClick={() => setSidebarTerbuka(false)} />
-        )}
-
         {dukungRiwayat && (
           <div className={`edu-sidebar ${sidebarTerbuka ? 'open' : ''}`}>
-            <button type="button" className="edu-sidebar-new" onClick={percakapanBaru}>
-              <i className="ti ti-plus" /> Percakapan Baru
-            </button>
+            <div className="edu-sidebar-top">
+              <button type="button" className="edu-sidebar-new" onClick={percakapanBaru}>
+                <i className="ti ti-plus" /> Percakapan Baru
+              </button>
+              <button
+                type="button"
+                className="edu-sidebar-collapse"
+                onClick={() => setSidebarTerbuka(false)}
+                aria-label="Sembunyikan riwayat percakapan"
+              >
+                <i className="ti ti-layout-sidebar" />
+              </button>
+            </div>
             <div className="edu-sidebar-list">
               {daftarPercakapan.length === 0 && (
                 <div className="edu-sidebar-empty">Belum ada percakapan tersimpan.</div>
