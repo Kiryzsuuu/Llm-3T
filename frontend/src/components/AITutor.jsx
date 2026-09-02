@@ -54,7 +54,6 @@ export default function AITutor({ materiId, jenjang, tagPembuka, saran = [] }) {
   // sudah terikat ke satu materi spesifik otomatis sudah tahu mapelnya, tidak perlu ditanya lagi.
   const modePilihMapel = !materiId;
   const [daftarMapel, setDaftarMapel] = useState([]);
-  const [mapelIdMap, setMapelIdMap] = useState({}); // { [namaMapel]: _id } - buat ambil daftar topik nyata saat mapel dipilih
   const [mapelTerpilih, setMapelTerpilih] = useState(null); // nama mapel | MAPEL_BEBAS | null (belum dipilih)
   const [pesanPicker, setPesanPicker] = useState(modePilihMapel ? PESAN_TANYA_MAPEL : null);
 
@@ -98,11 +97,7 @@ export default function AITutor({ materiId, jenjang, tagPembuka, saran = [] }) {
     api
       .get('/mapel')
       .then(({ data }) => {
-        if (batal) return;
-        setDaftarMapel(data.map((m) => m.nama));
-        const peta = {};
-        data.forEach((m) => { peta[m.nama] = m._id; });
-        setMapelIdMap(peta);
+        if (!batal) setDaftarMapel(data.map((m) => m.nama));
       })
       .catch(() => {});
     return () => {
@@ -152,7 +147,7 @@ export default function AITutor({ materiId, jenjang, tagPembuka, saran = [] }) {
       const mapelPercakapan = data.mapel_terpilih || MAPEL_BEBAS;
       setMapelTerpilih(mapelPercakapan);
       setPesanPicker(null);
-      setSaranAdaptif(mapelPercakapan !== MAPEL_BEBAS ? await ambilTopikMapel(mapelIdMap[mapelPercakapan]) : []);
+      setSaranAdaptif(await ambilTopikMapel(mapelPercakapan));
 
       const pesanTerakhir = (data.pesan || [])[data.pesan.length - 1];
       setSesiAktif(
@@ -179,10 +174,35 @@ export default function AITutor({ materiId, jenjang, tagPembuka, saran = [] }) {
 
   // Dipakai supaya chip topik (baik yang muncul sesaat setelah pilih mapel, maupun yang jadi
   // suggestion persisten di dekat kolom input) selalu berisi topik yang BENAR-BENAR ada isinya
-  // di RAG - diambil dari data materi asli, bukan digenerate/ditebak AI.
-  async function ambilTopikMapel(mapelId) {
-    if (!mapelId) return [];
+  // di RAG - diambil dari data materi asli, bukan digenerate/ditebak AI. Sengaja menerima NAMA
+  // mapel (bukan _id) dan mengambil sendiri daftar mapel terbaru di sini - kalau bergantung ke
+  // state mapelIdMap dari effect terpisah, ada race condition nyata: saat percakapan lama
+  // otomatis dipulihkan begitu komponen dimuat (lihat muatDaftarPercakapan), effect itu bisa saja
+  // belum sempat selesai, membuat chip topik gagal muncul padahal mapelnya valid.
+  async function ambilTopikMapel(namaMapel) {
+    if (!namaMapel) return [];
     try {
+      // Diskusi bebas TIDAK boleh cuma dilempar suggestion kosong (atau lebih parah, contoh statis
+      // yang tidak nyambung dengan materi asli, mis. "Jelaskan hukum Newton" padahal Fisika sama
+      // sekali bukan bagian kurikulum yang diupload) - tetap tawarkan topik NYATA, tapi diambil dari
+      // BERAGAM mata pelajaran (satu topik wakil per mapel) alih-alih dikunci ke satu mapel saja.
+      if (namaMapel === MAPEL_BEBAS) {
+        const { data } = await api.get('/materi');
+        const perMapel = new Map();
+        data.forEach((m) => {
+          const namaMapelnya = m.mapel?.nama;
+          const label = (m.bab || m.judul || '').trim();
+          if (namaMapelnya && label && !perMapel.has(namaMapelnya)) {
+            perMapel.set(namaMapelnya, { label, materiId: m._id });
+          }
+        });
+        return [...perMapel.values()].slice(0, 8);
+      }
+
+      const { data: semuaMapel } = await api.get('/mapel');
+      const mapelId = semuaMapel.find((m) => m.nama === namaMapel)?._id;
+      if (!mapelId) return [];
+
       const { data } = await api.get('/materi', { params: { mapel: mapelId } });
       const peta = new Map();
       data.forEach((m) => {
@@ -201,7 +221,6 @@ export default function AITutor({ materiId, jenjang, tagPembuka, saran = [] }) {
       await api.delete(`/percakapan/${id}`);
       setDaftarPercakapan((prev) => prev.filter((p) => p._id !== id));
       if (id === percakapanId) percakapanBaru();
-       
     } catch (err) {
       // Diamkan - item tetap ada di daftar kalau hapus gagal, murid bisa coba lagi.
     }
@@ -215,35 +234,31 @@ export default function AITutor({ materiId, jenjang, tagPembuka, saran = [] }) {
     setMapelTerpilih(pilihan);
     setPesanPicker(null);
 
-    if (pilihan === MAPEL_BEBAS) {
-      setSaranAdaptif([]);
-      setRiwayat((prev) => [
-        ...prev,
-        {
-          pertanyaan: 'Diskusi bebas',
-          jawaban: 'Oke, kita diskusi bebas aja ya! Tanya apa saja yang ingin kamu ketahui.',
-          sumber: [],
-          tahap: null,
-          confidence: null,
-          isPicker: true,
-        },
-      ]);
-      return;
-    }
-
-    const topikList = await ambilTopikMapel(mapelIdMap[pilihan]);
+    const topikList = await ambilTopikMapel(pilihan);
     setSaranAdaptif(topikList);
 
+    const bebas = pilihan === MAPEL_BEBAS;
+    const daftarTopik = topikList.map((t) => `- ${t.label}`).join('\n');
     const jawaban =
-      topikList.length > 0
-        ? `Oke, kita bahas mata pelajaran **${pilihan}** ya! Beberapa topik yang tersedia:\n\n${topikList
-            .map((t) => `- ${t.label}`)
-            .join('\n')}\n\nMau mulai dari topik yang mana? Atau tanya bebas juga boleh!`
-        : `Oke, kita bahas mata pelajaran **${pilihan}** ya! Tanya apa saja tentang mapel ini.`;
+      topikList.length === 0
+        ? bebas
+          ? 'Oke, kita diskusi bebas aja ya! Tanya apa saja yang ingin kamu ketahui.'
+          : `Oke, kita bahas mata pelajaran **${pilihan}** ya! Tanya apa saja tentang mapel ini.`
+        : bebas
+          ? `Oke, kita diskusi bebas aja ya! Beberapa topik yang tersedia dari berbagai mata pelajaran:\n\n${daftarTopik}\n\nMau mulai dari yang mana? Atau tanya hal lain juga boleh!`
+          : `Oke, kita bahas mata pelajaran **${pilihan}** ya! Beberapa topik yang tersedia:\n\n${daftarTopik}\n\nMau mulai dari topik yang mana? Atau tanya bebas juga boleh!`;
 
     setRiwayat((prev) => [
       ...prev,
-      { pertanyaan: pilihan, jawaban, sumber: [], tahap: null, confidence: null, isPicker: true, topikSaran: topikList },
+      {
+        pertanyaan: bebas ? 'Diskusi bebas' : pilihan,
+        jawaban,
+        sumber: [],
+        tahap: null,
+        confidence: null,
+        isPicker: true,
+        topikSaran: topikList,
+      },
     ]);
   }
 

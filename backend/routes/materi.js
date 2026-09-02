@@ -73,8 +73,24 @@ function potongSebelumKunciJawaban(konten) {
 // sendiri (mis. "Bab 4", TIDAK boleh dipotong jadi "Bab"). Angka di ekor cuma dibuang kalau ada
 // teks huruf yang berarti di ANTARA penanda bab dan angka ekor itu (berarti dua angka total = satu
 // nomor bab + satu nomor halaman terpisah), bukan kalau cuma ada satu angka saja.
-function bersihkanNomorHalamanEkor(teks) {
-  const t = String(teks || '').trim();
+// Beberapa heading asli punya beberapa "kolom" teks yang dipisah karakter tab pada baris yang sama
+// (mis. "Bab IV\tBab IV Berkreasi dan Berkolaborasi\tBerkreasi dan Berkolaborasi" - kemungkinan dari
+// tata letak tabel/kolom PDF yang mengulang teks yang sama). Kolom yang isinya cuma SUBSTRING dari
+// kolom lain yang lebih panjang dibuang (itu cuma potongan/pengulangan), sisanya digabung dengan
+// spasi supaya konten yang genuinely terpisah (mis. "Bab" dan "7" jadi "Bab 7") tidak hilang.
+function bersihkanDuplikasiTab(teks) {
+  if (!teks.includes('\t')) return teks;
+  // Nomor halaman di ekor SATU segmen (mis. "Serunya Bermain Tablo 95") dibuang dulu SEBELUM
+  // dibandingkan sebagai substring - tanpa ini, segmen itu gagal dikenali sebagai pengulangan dari
+  // "Bab II Serunya Bermain Tablo" cuma karena angka halamannya beda, padahal teksnya sama persis.
+  const bersihkanAngkaEkorSegmen = (s) => s.replace(/\s+\d{1,4}$/, '').trim();
+  const unik = [...new Set(teks.split('\t').map((s) => bersihkanAngkaEkorSegmen(s.trim())).filter(Boolean))];
+  const hasil = unik.filter((s, i) => !unik.some((lain, j) => j !== i && lain.length > s.length && lain.includes(s)));
+  return (hasil.join(' ').trim() || teks.replace(/\t/g, ' ').trim());
+}
+
+function bersihkanNomorHalamanEkor(teksMentah) {
+  const t = bersihkanDuplikasiTab(String(teksMentah || '').trim());
   const cocokAwal = t.match(/^(bab\s+(?:\d+|[ivxlcdm]+)\b|kegiatan\s+belajar\s+(?:\d+|[ivxlcdm]+)\b|pembelajaran\s+\d+)/i);
   if (!cocokAwal) return t;
   const sisa = t.slice(cocokAwal[0].length);

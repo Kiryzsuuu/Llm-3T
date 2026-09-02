@@ -140,8 +140,14 @@ input:focus,textarea:focus,select:focus{border-color:var(--teal-acc)}
 /* Tombol collapse DI DALAM sidebar (nutup) dan tombol toggle di edu-head (buka lagi) - pola yang
    sama seperti Claude/ChatGPT: kontrol sidebar menempel ke sidebar itu sendiri, bukan menetap
    permanen di satu tempat begitu ditutup. */
-.edu-sidebar-collapse,
-.edu-sidebar-toggle{width:32px;height:32px;flex-shrink:0;border:1px solid var(--border-strong);border-radius:8px;background:var(--card);color:var(--text-2);display:flex;align-items:center;justify-content:center;cursor:pointer}
+.edu-sidebar-collapse{width:32px;height:32px;flex-shrink:0;border:1px solid var(--border-strong);border-radius:8px;background:var(--card);color:var(--text-2);display:flex;align-items:center;justify-content:center;cursor:pointer}
+/* Menempel ke tepi kiri LAYAR (position:fixed, sama seperti .edu-sidebar), bukan ke posisi widget
+   AITutor di halaman - supaya konsisten dengan sidebar-nya sendiri, ke mana pun widget ini
+   ditaruh di halaman (lihat komentar di JSX). */
+/* top:64px (bukan 16px) supaya di BAWAH navbar aplikasi (.nav, sticky top:0, tingginya ~50px) -
+   di 16px tombol ini malah menimpa logo/menu navbar karena z-index-nya sengaja tinggi biar selalu
+   bisa diklik. */
+.edu-sidebar-toggle-fixed{position:fixed;top:64px;left:16px;width:32px;height:32px;border:1px solid var(--border-strong);border-radius:8px;background:var(--card);color:var(--text-2);display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:201;box-shadow:0 1px 6px rgba(0,0,0,.1)}
 .edu-sidebar-list{flex:1;overflow-y:auto;padding:0 6px 10px}
 .edu-sidebar-empty{font-size:11px;color:var(--muted);padding:10px}
 .edu-sidebar-item{display:flex;align-items:center;gap:4px;padding:8px;border-radius:10px;cursor:pointer;margin-bottom:2px}

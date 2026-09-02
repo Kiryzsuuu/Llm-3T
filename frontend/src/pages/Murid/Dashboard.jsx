@@ -164,10 +164,11 @@ export default function MuridDashboard() {
         </div>
       )}
 
-      <AITutor
-        jenjang={user?.jenjang}
-        saran={['Apa itu fotosintesis?', 'Jelaskan hukum Newton', 'Buatkan 3 soal latihan']}
-      />
+      {/* Tanpa prop "saran" statis - AITutor sudah punya suggestion adaptif sendiri (saranAdaptif)
+          berdasarkan materi ASLI yang tersedia, supaya tidak menyarankan topik yang sebenarnya
+          tidak ada di kurikulum yang diupload (mis. "Jelaskan hukum Newton" - Fisika bukan bagian
+          dari kurikulum ini sama sekali). */}
+      <AITutor jenjang={user?.jenjang} />
     </div>
   );
 }
