@@ -171,13 +171,22 @@ function cocokOrdinalChunk(teks, angka) {
 
 function prioritaskanOrdinal(dokumen, metadatas, pertanyaan) {
   const cocokAngka = pertanyaan.match(POLA_ORDINAL_PERTANYAAN);
-  if (!cocokAngka) return { dokumen, metadatas };
+  if (!cocokAngka) return { dokumen, metadatas, ordinalTakDitemukan: false };
 
   const angka = cocokAngka[1];
   const idx = dokumen.findIndex((d) => cocokOrdinalChunk(d, angka));
-  if (idx === -1) return { dokumen, metadatas }; // tidak ada chunk yang cocok urutannya, biarkan apa adanya
+  if (idx === -1) {
+    // Tidak ada satu pun dari 4 chunk yang di-retrieve benar-benar menyebut urutan yang ditanya
+    // (mis. "sila ke-1" tapi ke-4 chunk-nya cuma bahas sila lain / instruksi mengajar / lambang
+    // negara) - terbukti dari pengujian nyata pada materi Buku Guru asli (bukan fixture bersih):
+    // membiarkan retrieval "apa adanya" di sini membuat model mengevaluasi jawaban siswa TANPA
+    // pegangan sungguhan, hasilnya tidak konsisten dan kadang-kadang jawaban BENAR malah divonis
+    // salah. Ditandai di sini supaya retrieveContext bisa memaksa confidence ke 0 - jujur "belum
+    // tersedia" jauh lebih aman daripada mengevaluasi dengan konteks yang salah urutan.
+    return { dokumen, metadatas, ordinalTakDitemukan: true };
+  }
 
-  return { dokumen: [dokumen[idx]], metadatas: [metadatas[idx]] };
+  return { dokumen: [dokumen[idx]], metadatas: [metadatas[idx]], ordinalTakDitemukan: false };
 }
 
 // Kalau SEMUA chunk yang ter-retrieve pendek DAN tidak ada satupun yang berupa kalimat lengkap
@@ -239,9 +248,17 @@ async function retrieveContext(pertanyaan, filter = {}) {
   const hasil = await queryDocuments(pertanyaan, 4, where);
   const mentah = (hasil.documents && hasil.documents[0]) || [];
   const metadataMentah = (hasil.metadatas && hasil.metadatas[0]) || [];
-  const { dokumen, metadatas } = prioritaskanOrdinal(mentah, metadataMentah, pertanyaan);
+  const { dokumen, metadatas, ordinalTakDitemukan } = prioritaskanOrdinal(mentah, metadataMentah, pertanyaan);
   let confidence = hitungConfidence(hasil);
   const konteks = dokumen.map((d, i) => `[Sumber ${i + 1}]\n${d}`).join('\n\n');
+
+  // Pertanyaan menyebut urutan spesifik (mis. "sila ke-1") tapi TIDAK ADA satu pun chunk yang
+  // benar-benar cocok urutan itu - lihat komentar ordinalTakDitemukan di prioritaskanOrdinal().
+  // Mengevaluasi jawaban siswa dengan konteks yang salah urutan lebih berbahaya daripada jujur
+  // bilang belum tersedia (terbukti dari pengujian nyata: jawaban BENAR bisa divonis salah).
+  if (ordinalTakDitemukan) {
+    confidence = 0;
+  }
 
   // Gerbang kata kunci dilewati KHUSUS saat pertanyaan berasal dari chip topik yang di-generate
   // dari label materi asli (bukan diketik bebas oleh siswa) - mis. "Jelaskan tentang Bab 4" gagal
