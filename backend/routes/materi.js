@@ -100,6 +100,29 @@ function bersihkanNomorHalamanEkor(teksMentah) {
   return t;
 }
 
+// Heading "polos" (mis. "Bab 5", "BAB VI" tanpa judul topik menyertainya di baris yang sama) tidak
+// membantu siswa sama sekali - siswa tidak tahu apa isi "Bab 5" itu dari labelnya saja. Terbukti
+// dari data nyata (154 dari 267 materi kena ini): judul topik yang SUNGGUHAN biasanya tetap ada,
+// cuma nyangkut di baris PERTAMA isi bab (bukan di baris heading-nya) sebagai running header yang
+// tab-duplikat juga (mis. "Sudah Besar\tSudah Besar\nHal apa yang berubah..." - "Sudah Besar" itu
+// judul babnya). Diekstrak di sini dari isi, BUKAN digenerate/ditebak AI, supaya akurat.
+const POLA_BAB_POLOS = /^(bab|kegiatan\s+belajar|pembelajaran)\s+\S+\.?$/i;
+
+function ekstrakJudulDariAwalKonten(konten) {
+  const baris = konten.split('\n');
+  const potongan = [];
+  for (const b of baris.slice(0, 5)) {
+    const t = b.trim();
+    if (!t) {
+      if (potongan.length > 0) break;
+      continue;
+    }
+    if (!t.includes('\t')) break;
+    potongan.push(bersihkanDuplikasiTab(t));
+  }
+  return potongan.join(' ').trim();
+}
+
 function pisahPerBab(teks) {
   const baris = teks.replace(/\r\n/g, '\n').split('\n');
   const bagian = [];
@@ -109,7 +132,12 @@ function pisahPerBab(teks) {
 
   function simpanBagian() {
     const konten = potongSebelumKunciJawaban(isi.join('\n').trim());
-    if (konten.length > 0) bagian.push({ bab: babSaatIni, konten });
+    let babFinal = babSaatIni;
+    if (babFinal && POLA_BAB_POLOS.test(babFinal.trim())) {
+      const judulTambahan = ekstrakJudulDariAwalKonten(konten);
+      if (judulTambahan) babFinal = `${babFinal} | ${judulTambahan}`;
+    }
+    if (konten.length > 0) bagian.push({ bab: babFinal, konten });
   }
 
   for (const b of baris) {

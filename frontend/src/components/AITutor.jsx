@@ -33,6 +33,11 @@ const POLA_GANTI_MAPEL = /ganti\s+(mata\s+pelajaran|mapel|pelajaran)/i;
 // itu" jadi salah sasaran dan membingungkan kalau dipakai untuk sapaan biasa.
 const POLA_SAPAAN = /^(halo+|hai+|hello+|hallo+|hi+|assalamu'?alaikum|selamat (pagi|siang|sore|malam))[\s!.,?]*$/i;
 
+// Sebagian materi cuma punya label bab "polos" tanpa judul topik (mis. "Bab 5", "BAB VI") - siswa
+// tidak tahu apa isinya cuma dari label itu. Dipakai untuk MENGUTAMAKAN materi dengan label yang
+// informatif saat memilih topik suggestion, bukan cuma ambil yang pertama ketemu di database.
+const POLA_LABEL_POLOS = /^(bab|kegiatan\s+belajar|pembelajaran)\s+\S+\.?$/i;
+
 function formatWaktuRelatif(iso) {
   const detik = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000);
   if (detik < 60) return 'Baru saja';
@@ -192,11 +197,16 @@ export default function AITutor({ materiId, jenjang, tagPembuka, saran = [] }) {
         data.forEach((m) => {
           const namaMapelnya = m.mapel?.nama;
           const label = (m.bab || m.judul || '').trim();
-          if (namaMapelnya && label && !perMapel.has(namaMapelnya)) {
-            perMapel.set(namaMapelnya, { label, materiId: m._id });
+          if (!namaMapelnya || !label) return;
+          const labelBagus = !POLA_LABEL_POLOS.test(label);
+          const sudahAda = perMapel.get(namaMapelnya);
+          // Utamakan materi dengan label informatif - kalau yang sudah tersimpan masih label polos
+          // ("Bab 5") dan yang ini lebih bagus, timpa. Bukan cuma ambil yang pertama ketemu.
+          if (!sudahAda || (!sudahAda.bagus && labelBagus)) {
+            perMapel.set(namaMapelnya, { label, materiId: m._id, bagus: labelBagus });
           }
         });
-        return [...perMapel.values()].slice(0, 8);
+        return [...perMapel.values()].map(({ label, materiId }) => ({ label, materiId })).slice(0, 8);
       }
 
       const { data: semuaMapel } = await api.get('/mapel');
@@ -209,7 +219,12 @@ export default function AITutor({ materiId, jenjang, tagPembuka, saran = [] }) {
         const label = (m.bab || m.judul || '').trim();
         if (label && !peta.has(label)) peta.set(label, m._id);
       });
-      return [...peta.entries()].map(([label, materiId]) => ({ label, materiId })).slice(0, 8);
+      // Label informatif ditaruh DULUAN, label polos ("Bab 5") tetap ikut tapi di belakang -
+      // tetap ditampilkan (lebih baik ada daripada tidak sama sekali) tapi tidak mendominasi
+      // urutan chip yang cuma muat 8 item.
+      const daftar = [...peta.entries()].map(([label, materiId]) => ({ label, materiId }));
+      daftar.sort((a, b) => Number(POLA_LABEL_POLOS.test(a.label)) - Number(POLA_LABEL_POLOS.test(b.label)));
+      return daftar.slice(0, 8);
     } catch (err) {
       return [];
     }
